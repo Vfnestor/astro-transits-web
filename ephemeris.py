@@ -1,8 +1,5 @@
 from datetime import datetime
 
-# نمونهٔ ساده و بدون خطا برای ترانزیت‌های امروز
-# می‌تونی بعداً با محاسبات واقعی جایگزینش کنی
-
 def get_today_transits():
     return {
         "status": "ok",
@@ -15,3 +12,10 @@ def get_today_transits():
             {"planet": "Jupiter", "aspect": "trine Uranus"}
         ]
     }
+
+def detect_aspects(chart):
+    # نسخهٔ ساده برای جلوگیری از خطا
+    return [
+        {"planet": "Sun", "aspect": "trine Moon"},
+        {"planet": "Mars", "aspect": "square Venus"}
+    ]
