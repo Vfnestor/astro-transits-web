@@ -1,6 +1,6 @@
 import swisseph as swe
 from datetime import datetime
-
+swe.setephepath("ephe")
 # تنظیم مسیر دیتابیس سیارات (در آینده می‌تونی فایل‌های ephemeris رو روی Render بذاری)
 # swe.set_ephe_path('/opt/render/project/src/ephe')  # فعلاً کامنت
 
