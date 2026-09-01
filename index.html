@@ -2,22 +2,59 @@
 <html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>نسخه 0.1 ترانزیت چارت وحید</title>
+    <title>مشاور نجومی شخصی – نسخه 0.5</title>
+    <link rel="stylesheet" href="static/style.css">
     <style>
         body {
-            font-family: sans-serif;
-            background: #050816;
+            font-family: 'Vazirmatn', sans-serif;
+            background: #0b0f19;
             color: #f5f5f5;
-            text-align: center;
+            margin: 0;
         }
-        .card {
-            margin: 40px auto;
+
+        nav {
+            background: #111827;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav a {
+            color: #fbbf24;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+
+        nav a:hover {
+            background: #fbbf24;
+            color: #111827;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
             padding: 20px;
-            max-width: 600px;
+        }
+
+        .card {
             background: #111827;
             border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
             box-shadow: 0 0 20px rgba(0,0,0,0.6);
         }
+
+        h1, h2, h3 {
+            color: #fbbf24;
+        }
+
         button {
             padding: 10px 20px;
             border-radius: 8px;
@@ -27,40 +64,148 @@
             font-weight: bold;
             cursor: pointer;
         }
+
         button:hover {
             background: #f59e0b;
         }
+
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            border-radius: 8px;
+            border: none;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+
         pre {
-            text-align: left;
-            direction: ltr;
             background: #020617;
             padding: 10px;
             border-radius: 8px;
             overflow-x: auto;
+            white-space: pre-wrap;
         }
     </style>
 </head>
+
 <body>
-    <div class="card">
-        <h1>نسخه 0.1 – ترانزیت چارت تولد</h1>
-        <p>این صفحه فعلاً فقط به بک‌اند وصل می‌شود و پاسخ تست را نشان می‌دهد.</p>
-        <button onclick="fetchTransits()">محاسبه ترانزیت الان</button>
-        <h3>پاسخ سرور:</h3>
-        <pre id="responseBox">هنوز درخواستی ارسال نشده.</pre>
+
+<nav>
+    <a href="#dashboard">داشبورد</a>
+    <a href="#natal">چارت تولد</a>
+    <a href="#transits">ترانزیت‌های امروز</a>
+    <a href="#advisor">مشاور نجومی</a>
+</nav>
+
+<div class="container">
+
+    <!-- DASHBOARD -->
+    <div class="card" id="dashboard">
+        <h1>داشبورد نجومی – نسخه 0.5</h1>
+        <p>این داشبورد به بک‌اند واقعی وصل است و ترانزیت‌ها، چارت تولد و مشاورهٔ نجومی را نمایش می‌دهد.</p>
+        <button onclick="loadDashboard()">به‌روزرسانی داشبورد</button>
+        <pre id="dashboardBox">داشبورد هنوز لود نشده.</pre>
     </div>
 
-    <script>
-        async function fetchTransits() {
-            try {
-                const res = await fetch("http://127.0.0.1:8000/transits/now");
-                const data = await res.json();
-                document.getElementById("responseBox").textContent =
-                    JSON.stringify(data, null, 2);
-            } catch (e) {
-                document.getElementById("responseBox").textContent =
-                    "خطا در ارتباط با سرور: " + e;
-            }
+    <!-- NATAL -->
+    <div class="card" id="natal">
+        <h2>چارت تولد</h2>
+        <button onclick="loadNatal()">نمایش چارت تولد</button>
+        <pre id="natalBox">هنوز چارت تولد لود نشده.</pre>
+    </div>
+
+    <!-- TRANSITS -->
+    <div class="card" id="transits">
+        <h2>ترانزیت‌های واقعی امروز</h2>
+        <button onclick="loadTransits()">نمایش ترانزیت‌ها</button>
+        <pre id="transitBox">هنوز ترانزیت‌ها لود نشده.</pre>
+    </div>
+
+    <!-- ADVISOR -->
+    <div class="card" id="advisor">
+        <h2>چت با مشاور نجومی</h2>
+        <p>سؤال خودت را بنویس؛ مثل:</p>
+        <p>«الان برای تغییر شغل زمان خوبیه؟»</p>
+        <p>«در مورد رابطه‌ام چه وضعیتی دارم؟»</p>
+        <textarea id="questionInput" placeholder="سؤال خودت را اینجا بنویس..."></textarea>
+        <button onclick="askAdvisor()">ارسال سؤال</button>
+        <h3>پاسخ مشاور:</h3>
+        <pre id="advisorBox">هنوز پاسخی دریافت نشده.</pre>
+    </div>
+
+</div>
+
+<script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    async function loadDashboard() {
+        try {
+            const natal = await fetch(`${API_BASE}/natal`).then(r => r.json());
+            const transits = await fetch(`${API_BASE}/transits`).then(r => r.json());
+
+            const text =
+                "📌 چارت تولد:\n" +
+                JSON.stringify(natal, null, 2) +
+                "\n\n📌 ترانزیت‌های امروز:\n" +
+                JSON.stringify(transits, null, 2);
+
+            document.getElementById("dashboardBox").textContent = text;
+
+        } catch (e) {
+            document.getElementById("dashboardBox").textContent =
+                "خطا در ارتباط با سرور: " + e;
         }
-    </script>
+    }
+
+    async function loadNatal() {
+        try {
+            const res = await fetch(`${API_BASE}/natal`);
+            const data = await res.json();
+            document.getElementById("natalBox").textContent =
+                JSON.stringify(data, null, 2);
+        } catch (e) {
+            document.getElementById("natalBox").textContent =
+                "خطا در ارتباط با سرور: " + e;
+        }
+    }
+
+    async function loadTransits() {
+        try {
+            const res = await fetch(`${API_BASE}/transits`);
+            const data = await res.json();
+            document.getElementById("transitBox").textContent =
+                JSON.stringify(data, null, 2);
+        } catch (e) {
+            document.getElementById("transitBox").textContent =
+                "خطا در ارتباط با سرور: " + e;
+        }
+    }
+
+    async function askAdvisor() {
+        const q = document.getElementById("questionInput").value.trim();
+        if (!q) {
+            alert("اول یک سؤال بنویس.");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/advisor`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: q })
+            });
+
+            const data = await res.json();
+            document.getElementById("advisorBox").textContent =
+                data.advice || JSON.stringify(data, null, 2);
+
+        } catch (e) {
+            document.getElementById("advisorBox").textContent =
+                "خطا در ارتباط با سرور: " + e;
+        }
+    }
+</script>
+
 </body>
 </html>
