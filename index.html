@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>نسخه 0.1 ترانزیت چارت وحید</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #050816;
+            color: #f5f5f5;
+            text-align: center;
+        }
+        .card {
+            margin: 40px auto;
+            padding: 20px;
+            max-width: 600px;
+            background: #111827;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            background: #fbbf24;
+            color: #111827;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #f59e0b;
+        }
+        pre {
+            text-align: left;
+            direction: ltr;
+            background: #020617;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>نسخه 0.1 – ترانزیت چارت تولد</h1>
+        <p>این صفحه فعلاً فقط به بک‌اند وصل می‌شود و پاسخ تست را نشان می‌دهد.</p>
+        <button onclick="fetchTransits()">محاسبه ترانزیت الان</button>
+        <h3>پاسخ سرور:</h3>
+        <pre id="responseBox">هنوز درخواستی ارسال نشده.</pre>
+    </div>
+
+    <script>
+        async function fetchTransits() {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/transits/now");
+                const data = await res.json();
+                document.getElementById("responseBox").textContent =
+                    JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById("responseBox").textContent =
+                    "خطا در ارتباط با سرور: " + e;
+            }
+        }
+    </script>
+</body>
+</html>
