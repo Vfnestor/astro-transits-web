@@ -1,12 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from natal import NatalChart
+from datetime import datetime
+from natal import natal
 from advisor import AdvisorQuestion, AdvisorAnswer, infer_topic, build_advice
 from ephemeris import get_planet_positions, detect_aspects
-from datetime import datetime
 
-app = FastAPI()
+app = FastAPI(
+    title="Astro Advisor 0.4",
+    description="نسخه کامل با اپهمریس واقعی + چارت تولد واقعی vahid",
+    version="0.4"
+)
 
+# -------------------- CORS --------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,47 +19,77 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# چارت تولد واقعی تو را اینجا وارد می‌کنیم
-natal = NatalChart(
-    birth_year=1998,
-    birth_month=7,
-    birth_day=12,
-    birth_hour=14.5,
-    lat=35.6892,
-    lon=51.3890
-)
+# -------------------- ROOT --------------------
+@app.get("/")
+def root():
+    return {
+        "message": "سرور نجومی فعال است – نسخه 0.4",
+        "time": datetime.now().isoformat()
+    }
 
+# -------------------- NATAL --------------------
 @app.get("/natal")
 def get_natal():
     return natal
 
+# -------------------- TRANSITS --------------------
 @app.get("/transits")
 def get_transits():
     now = datetime.now()
-    transits = get_planet_positions(now.year, now.month, now.day)
-    natal_positions = get_planet_positions(
-        natal.birth_year, natal.birth_month, natal.birth_day, natal.birth_hour
+
+    # ترانزیت‌های واقعی امروز
+    transit_positions = get_planet_positions(
+        now.year, now.month, now.day, now.hour + now.minute/60
     )
-    aspects = detect_aspects(natal_positions, transits)
+
+    # موقعیت واقعی سیارات در لحظه تولد vahid
+    natal_positions = get_planet_positions(
+        natal.birth_year,
+        natal.birth_month,
+        natal.birth_day,
+        natal.birth_hour
+    )
+
+    # زوایا
+    aspects = detect_aspects(natal_positions, transit_positions)
+
     return {
-        "transits": transits,
+        "timestamp": now.isoformat(),
+        "transits": transit_positions,
+        "natal_positions": natal_positions,
         "aspects": aspects
     }
 
-@app.post("/advisor")
-def advisor(q: AdvisorQuestion):
+# -------------------- ADVISOR --------------------
+@app.post("/advisor", response_model=AdvisorAnswer)
+def advisor_endpoint(q: AdvisorQuestion):
+
     topic = infer_topic(q.question)
+
     now = datetime.now()
-    transits = get_planet_positions(now.year, now.month, now.day)
-    natal_positions = get_planet_positions(
-        natal.birth_year, natal.birth_month, natal.birth_day, natal.birth_hour
+
+    # ترانزیت‌های واقعی امروز
+    transit_positions = get_planet_positions(
+        now.year, now.month, now.day, now.hour + now.minute/60
     )
-    aspects = detect_aspects(natal_positions, transits)
-    advice = build_advice(topic, aspects)
+
+    # موقعیت واقعی سیارات تولد vahid
+    natal_positions = get_planet_positions(
+        natal.birth_year,
+        natal.birth_month,
+        natal.birth_day,
+        natal.birth_hour
+    )
+
+    # زوایا
+    aspects = detect_aspects(natal_positions, transit_positions)
+
+    # متن مشاوره
+    advice_text = build_advice(topic, aspects)
 
     return AdvisorAnswer(
         question=q.question,
-        summary=f"تحلیل بر اساس ترانزیت واقعی و چارت تولد.",
-        advice=advice,
+        summary="تحلیل بر اساس چارت تولد واقعی vahid + ترانزیت‌های واقعی امروز",
+        advice=advice_text,
         aspects=aspects
     )
