@@ -1,6 +1,6 @@
 import swisseph as swe
 from datetime import datetime
-
+swe.setephepath("ephe")
 PLANETS = {
     "Sun": swe.SUN,
     "Moon": swe.MOON,
