@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import natal
 import ephemeris
@@ -7,25 +8,14 @@ import advisor
 
 app = FastAPI()
 
-# ---------------- CORS FIX ----------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://astro-transits-web-1.onrender.com",
-        "https://astro-transits-web-2.onrender.com"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# سرو کردن فایل‌های استاتیک مثل CSS
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ---------------- ROOT ----------------
-@app.get("/")
+# ---------------- ROOT: سرو کردن index.html ----------------
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return {
-        "message": "0.4 - سرور نجومی فعال است",
-        "time": datetime.now()
-    }
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 # ---------------- NATAL ----------------
 @app.get("/natal")
