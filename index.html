@@ -63,6 +63,7 @@
             color: #111827;
             font-weight: bold;
             cursor: pointer;
+            margin-right: 10px;
         }
 
         button:hover {
@@ -81,10 +82,10 @@
 
         pre {
             background: #020617;
-            padding: 10px;
+            padding: 15px;
             border-radius: 8px;
-            overflow-x: auto;
             white-space: pre-wrap;
+            overflow-x: auto;
         }
     </style>
 </head>
@@ -111,7 +112,8 @@
     <!-- NATAL -->
     <div class="card" id="natal">
         <h2>چارت تولد واقعی</h2>
-        <button onclick="loadNatal()">نمایش چارت تولد</button>
+        <button onclick="loadNatal()">نمایش چارت تولد از سرور</button>
+        <button onclick="openOfflineNatal()">نمایش چارت تولد واقعی (آفلاین)</button>
         <pre id="natalBox">هنوز چارت تولد لود نشده.</pre>
     </div>
 
@@ -139,6 +141,7 @@
 <script>
     const API_BASE = "http://127.0.0.1:8000";
 
+    // ---------------- DASHBOARD ----------------
     async function loadDashboard() {
         try {
             const natal = await fetch(`${API_BASE}/natal`).then(r => r.json());
@@ -158,6 +161,7 @@
         }
     }
 
+    // ---------------- NATAL ----------------
     async function loadNatal() {
         try {
             const res = await fetch(`${API_BASE}/natal`);
@@ -170,6 +174,11 @@
         }
     }
 
+    function openOfflineNatal() {
+        window.location.href = "offline_natal.html";
+    }
+
+    // ---------------- TRANSITS ----------------
     async function loadTransits() {
         try {
             const res = await fetch(`${API_BASE}/transits`);
@@ -182,6 +191,7 @@
         }
     }
 
+    // ---------------- ADVISOR ----------------
     async function askAdvisor() {
         const q = document.getElementById("questionInput").value.trim();
         if (!q) {
