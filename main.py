@@ -10,7 +10,10 @@ app = FastAPI()
 # ---------------- CORS FIX ----------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # می‌تونی بعداً فقط دامنهٔ فرانت‌اند رو بزاری
+    allow_origins=[
+        "https://astro-transits-web-1.onrender.com",
+        "https://astro-transits-web-2.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
