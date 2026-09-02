@@ -1,23 +1,22 @@
+from datetime import datetime, timezone
+from pathlib import Path
+
 import swisseph as swe
 
-from datetime import datetime, timezone
 
-import natal
+# =========================================================
+# ASTRO VAHID — EPHEMERIS ENGINE
+# Version 3.0
+# =========================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+EPHE_PATH = BASE_DIR / "ephe"
+
+swe.set_ephe_path(str(EPHE_PATH))
 
 
 # =========================================================
-# Swiss Ephemeris
-# =========================================================
-
-BASE_DIR = __import__("pathlib").Path(__file__).resolve().parent
-
-swe.set_ephe_path(
-    str(BASE_DIR / "ephe")
-)
-
-
-# =========================================================
-# سیارات ترانزیتی
+# PLANETS
 # =========================================================
 
 PLANETS = {
@@ -34,63 +33,111 @@ PLANETS = {
 }
 
 
-PLANET_NAMES_FA = natal.PLANET_NAMES_FA
-PLANET_SYMBOLS = natal.PLANET_SYMBOLS
+PLANET_FA = {
+    "Sun": "خورشید",
+    "Moon": "ماه",
+    "Mercury": "عطارد",
+    "Venus": "زهره",
+    "Mars": "مریخ",
+    "Jupiter": "مشتری",
+    "Saturn": "زحل",
+    "Uranus": "اورانوس",
+    "Neptune": "نپتون",
+    "Pluto": "پلوتو",
+    "North Node": "گره شمالی",
+    "South Node": "گره جنوبی",
+    "ASC": "طالع",
+    "MC": "وسط آسمان",
+}
+
+
+PLANET_SYMBOL = {
+    "Sun": "☉",
+    "Moon": "☽",
+    "Mercury": "☿",
+    "Venus": "♀",
+    "Mars": "♂",
+    "Jupiter": "♃",
+    "Saturn": "♄",
+    "Uranus": "♅",
+    "Neptune": "♆",
+    "Pluto": "♇",
+    "North Node": "☊",
+    "South Node": "☋",
+    "ASC": "ASC",
+    "MC": "MC",
+}
 
 
 # =========================================================
-# Aspects
+# ASPECTS
 # =========================================================
 
 ASPECTS = {
     "conjunction": {
-        "angle": 0,
-        "orb": 6.0,
-        "name_fa": "هم‌نشینی",
+        "degree": 0,
+        "orb": 8.0,
+        "fa": "هم‌نشینی",
+        "symbol": "☌",
+        "weight": 5,
     },
-
-    "opposition": {
-        "angle": 180,
-        "orb": 6.0,
-        "name_fa": "مقابله",
-    },
-
-    "trine": {
-        "angle": 120,
-        "orb": 5.0,
-        "name_fa": "تثلیث",
-    },
-
-    "square": {
-        "angle": 90,
-        "orb": 5.0,
-        "name_fa": "تربیع",
-    },
-
     "sextile": {
-        "angle": 60,
-        "orb": 4.0,
-        "name_fa": "تسدیس",
+        "degree": 60,
+        "orb": 5.0,
+        "fa": "تسدیس",
+        "symbol": "⚹",
+        "weight": 3,
     },
-
+    "square": {
+        "degree": 90,
+        "orb": 7.0,
+        "fa": "تربیع",
+        "symbol": "□",
+        "weight": 4,
+    },
+    "trine": {
+        "degree": 120,
+        "orb": 7.0,
+        "fa": "تثلیث",
+        "symbol": "△",
+        "weight": 4,
+    },
+    "opposition": {
+        "degree": 180,
+        "orb": 8.0,
+        "fa": "مقابله",
+        "symbol": "☍",
+        "weight": 5,
+    },
     "quincunx": {
-        "angle": 150,
+        "degree": 150,
         "orb": 3.0,
-        "name_fa": "کوینکانکس",
+        "fa": "کوینکانکس",
+        "symbol": "⚻",
+        "weight": 2,
     },
 }
 
 
 # =========================================================
-# Julian Day
+# HELPERS
 # =========================================================
 
-def _to_julian_day(dt):
+def _to_julian_day(dt: datetime) -> float:
+    """
+    Convert datetime to Julian Day.
+
+    Swiss Ephemeris works with UTC.
+    """
+
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
 
     hour = (
         dt.hour
-        + dt.minute / 60
-        + dt.second / 3600
+        + dt.minute / 60.0
+        + dt.second / 3600.0
+        + dt.microsecond / 3600000000.0
     )
 
     return swe.julday(
@@ -101,31 +148,129 @@ def _to_julian_day(dt):
         swe.GREG_CAL,
     )
 
-# Deploy sync 2026-09-02
-# =========================================================
-# Degree difference
-# =========================================================
 
-def _deg_diff(a, b):
+def _degree_difference(a: float, b: float) -> float:
+    """
+    Smallest angular distance between two longitudes.
+    """
 
-    diff = abs(
-        float(a) - float(b)
-    ) % 360
+    diff = abs(a - b) % 360.0
 
-    if diff > 180:
-        diff = 360 - diff
+    if diff > 180.0:
+        diff = 360.0 - diff
 
     return diff
 
 
+def _normalize_degree(value: float) -> float:
+    return value % 360.0
+
+
+def _find_aspect(diff: float):
+    """
+    Find the strongest applicable aspect.
+    """
+
+    candidates = []
+
+    for name, data in ASPECTS.items():
+        aspect_degree = data["degree"]
+        orb_limit = data["orb"]
+
+        orb = abs(diff - aspect_degree)
+
+        if orb <= orb_limit:
+            candidates.append(
+                (
+                    orb,
+                    name,
+                    aspect_degree,
+                    data,
+                )
+            )
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: x[0])
+
+    orb, name, aspect_degree, data = candidates[0]
+
+    return {
+        "aspect": name,
+        "aspect_fa": data["fa"],
+        "aspect_symbol": data["symbol"],
+        "aspect_degree": aspect_degree,
+        "orb": round(orb, 4),
+        "weight": data["weight"],
+    }
+
+
+def _format_position(longitude: float) -> dict:
+    """
+    Convert absolute longitude into zodiac sign + degree.
+    """
+
+    signs = [
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
+    ]
+
+    signs_fa = [
+        "حمل",
+        "ثور",
+        "جوزا",
+        "سرطان",
+        "اسد",
+        "سنبله",
+        "میزان",
+        "عقرب",
+        "قوس",
+        "جدی",
+        "دلو",
+        "حوت",
+    ]
+
+    longitude = _normalize_degree(longitude)
+
+    sign_index = int(longitude // 30)
+    degree_float = longitude % 30
+
+    degree = int(degree_float)
+    minutes_float = (degree_float - degree) * 60
+
+    minute = int(minutes_float)
+    seconds = round((minutes_float - minute) * 60, 1)
+
+    return {
+        "longitude": round(longitude, 6),
+        "sign": signs[sign_index],
+        "sign_fa": signs_fa[sign_index],
+        "degree": degree,
+        "minute": minute,
+        "second": seconds,
+        "formatted": (
+            f"{degree}° {minute:02d}′ "
+            f"{seconds:04.1f}″ {signs_fa[sign_index]}"
+        ),
+    }
+
+
 # =========================================================
-# Transit positions
+# PLANET POSITIONS
 # =========================================================
 
-def _calculate_positions(
-    jd,
-):
-
+def _calculate_positions(jd: float) -> dict:
     positions = {}
 
     for name, code in PLANETS.items():
@@ -135,223 +280,339 @@ def _calculate_positions(
             code,
         )
 
-        values = result[0]
+        longitude = result[0][0]
 
-        longitude = float(
-            values[0]
-        )
+        speed_longitude = result[0][3]
 
-        latitude = float(
-            values[1]
-        )
-
-        speed = float(
-            values[3]
-        )
+        position = _format_position(longitude)
 
         positions[name] = {
-            "longitude": longitude,
-            "latitude": latitude,
-            "speed": speed,
-            "retrograde": speed < 0,
-            "name_fa": PLANET_NAMES_FA[name],
-            "symbol": PLANET_SYMBOLS[name],
-            **natal._format_position(
-                longitude
-            ),
+            "longitude": position["longitude"],
+            "sign": position["sign"],
+            "sign_fa": position["sign_fa"],
+            "degree": position["degree"],
+            "minute": position["minute"],
+            "second": position["second"],
+            "formatted": position["formatted"],
+            "retrograde": speed_longitude < 0,
+            "speed": round(speed_longitude, 6),
+            "planet_fa": PLANET_FA[name],
+            "symbol": PLANET_SYMBOL[name],
         }
 
     return positions
 
 
 # =========================================================
-# Transit-to-transit aspects
+# TRANSIT → TRANSIT ASPECTS
 # =========================================================
 
-def _calculate_transit_aspects(
-    positions,
-):
+def _calculate_transit_aspects(positions: dict) -> list:
+    results = []
 
-    result = []
-
-    names = list(
-        positions.keys()
-    )
+    names = list(positions.keys())
 
     for i in range(len(names)):
 
-        for j in range(
-            i + 1,
-            len(names),
-        ):
+        for j in range(i + 1, len(names)):
 
             p1 = names[i]
             p2 = names[j]
 
-            diff = _deg_diff(
-                positions[p1]["longitude"],
-                positions[p2]["longitude"],
+            lon1 = positions[p1]["longitude"]
+            lon2 = positions[p2]["longitude"]
+
+            diff = _degree_difference(
+                lon1,
+                lon2,
             )
 
-            for aspect_name, info in ASPECTS.items():
+            aspect = _find_aspect(diff)
 
-                orb = abs(
-                    diff - info["angle"]
-                )
+            if not aspect:
+                continue
 
-                if orb <= info["orb"]:
+            results.append(
+                {
+                    "planet1": p1,
+                    "planet1_fa": PLANET_FA[p1],
+                    "planet1_symbol": PLANET_SYMBOL[p1],
 
-                    result.append({
-                        "planet1": p1,
-                        "planet2": p2,
+                    "planet2": p2,
+                    "planet2_fa": PLANET_FA[p2],
+                    "planet2_symbol": PLANET_SYMBOL[p2],
 
-                        "planet1_fa":
-                            PLANET_NAMES_FA[p1],
+                    "aspect": aspect["aspect"],
+                    "aspect_fa": aspect["aspect_fa"],
+                    "aspect_symbol": aspect["aspect_symbol"],
 
-                        "planet2_fa":
-                            PLANET_NAMES_FA[p2],
+                    "exact_diff": round(diff, 4),
+                    "orb": aspect["orb"],
+                    "weight": aspect["weight"],
+                }
+            )
 
-                        "aspect": aspect_name,
-
-                        "aspect_fa":
-                            info["name_fa"],
-
-                        "angle":
-                            info["angle"],
-
-                        "exact_difference":
-                            round(diff, 4),
-
-                        "orb":
-                            round(orb, 4),
-                    })
-
-                    break
-
-    result.sort(
-        key=lambda x: x["orb"]
+    results.sort(
+        key=lambda x: (
+            -x["weight"],
+            x["orb"],
+        )
     )
 
-    return result
+    return results
 
 
 # =========================================================
-# Transit-to-natal aspects
+# NATAL TARGET EXTRACTION
+# =========================================================
+
+def _extract_natal_targets(natal_chart: dict) -> dict:
+    """
+    Extract natal planets, nodes and angles from natal.py output.
+    """
+
+    targets = {}
+
+    planets = natal_chart.get("planets", {})
+
+    for name, data in planets.items():
+
+        if "longitude" not in data:
+            continue
+
+        targets[name] = {
+            "longitude": float(data["longitude"]),
+            "target_type": "planet",
+            "house": data.get("house"),
+            "sign": data.get("sign"),
+            "sign_fa": data.get("sign_fa"),
+        }
+
+    nodes = natal_chart.get("nodes", {})
+
+    for name, data in nodes.items():
+
+        if "longitude" not in data:
+            continue
+
+        targets[name] = {
+            "longitude": float(data["longitude"]),
+            "target_type": "node",
+            "house": data.get("house"),
+            "sign": data.get("sign"),
+            "sign_fa": data.get("sign_fa"),
+        }
+
+    angles = natal_chart.get("angles", {})
+
+    if "ascendant" in angles:
+
+        asc = angles["ascendant"]
+
+        if isinstance(asc, dict):
+            asc_lon = asc.get("longitude")
+        else:
+            asc_lon = asc
+
+        if asc_lon is not None:
+
+            targets["ASC"] = {
+                "longitude": float(asc_lon),
+                "target_type": "angle",
+                "house": 1,
+            }
+
+    if "mc" in angles:
+
+        mc = angles["mc"]
+
+        if isinstance(mc, dict):
+            mc_lon = mc.get("longitude")
+        else:
+            mc_lon = mc
+
+        if mc_lon is not None:
+
+            targets["MC"] = {
+                "longitude": float(mc_lon),
+                "target_type": "angle",
+                "house": 10,
+            }
+
+    return targets
+
+
+# =========================================================
+# TRANSIT → NATAL
 # =========================================================
 
 def _calculate_natal_transits(
-    transit_positions,
-    natal_chart,
-):
+    transit_positions: dict,
+    natal_chart: dict,
+) -> list:
 
-    result = []
-
-    natal_bodies = {}
-
-    natal_bodies.update(
-        natal_chart["planets"]
+    natal_targets = _extract_natal_targets(
+        natal_chart
     )
 
-    natal_bodies.update(
-        natal_chart["nodes"]
-    )
+    results = []
 
-    for transit_name, transit in transit_positions.items():
+    for transit_name, transit_data in transit_positions.items():
 
-        transit_lon = transit[
-            "longitude"
-        ]
+        transit_lon = transit_data["longitude"]
 
-        for natal_name, natal_body in natal_bodies.items():
+        for natal_name, natal_data in natal_targets.items():
 
-            natal_lon = natal_body[
-                "longitude"
-            ]
+            natal_lon = natal_data["longitude"]
 
-            diff = _deg_diff(
+            diff = _degree_difference(
                 transit_lon,
                 natal_lon,
             )
 
-            for aspect_name, info in ASPECTS.items():
+            aspect = _find_aspect(diff)
 
-                orb = abs(
-                    diff - info["angle"]
-                )
+            if not aspect:
+                continue
 
-                if orb <= info["orb"]:
+            importance = aspect["weight"]
 
-                    result.append({
+            # Personal planets and angles receive more weight.
+            if natal_name in {
+                "Sun",
+                "Moon",
+                "ASC",
+                "MC",
+            }:
+                importance += 2
 
-                        "transit_planet":
-                            transit_name,
+            if transit_name in {
+                "Saturn",
+                "Uranus",
+                "Neptune",
+                "Pluto",
+                "Jupiter",
+            }:
+                importance += 1
 
-                        "transit_planet_fa":
-                            PLANET_NAMES_FA[
-                                transit_name
-                            ],
+            results.append(
+                {
+                    "transit_planet": transit_name,
+                    "transit_planet_fa": PLANET_FA[transit_name],
+                    "transit_symbol": PLANET_SYMBOL[transit_name],
 
-                        "natal_planet":
-                            natal_name,
+                    "natal_target": natal_name,
+                    "natal_target_fa": PLANET_FA.get(
+                        natal_name,
+                        natal_name,
+                    ),
+                    "natal_symbol": PLANET_SYMBOL.get(
+                        natal_name,
+                        "",
+                    ),
 
-                        "natal_planet_fa":
-                            PLANET_NAMES_FA[
-                                natal_name
-                            ],
+                    "target_type": natal_data["target_type"],
 
-                        "aspect":
-                            aspect_name,
+                    "aspect": aspect["aspect"],
+                    "aspect_fa": aspect["aspect_fa"],
+                    "aspect_symbol": aspect["aspect_symbol"],
 
-                        "aspect_fa":
-                            info["name_fa"],
+                    "exact_diff": round(diff, 4),
+                    "orb": aspect["orb"],
 
-                        "angle":
-                            info["angle"],
+                    "importance": importance,
 
-                        "exact_difference":
-                            round(
-                                diff,
-                                4,
-                            ),
+                    "transit_position": transit_data["formatted"],
 
-                        "orb":
-                            round(
-                                orb,
-                                4,
-                            ),
+                    "natal_sign": natal_data.get("sign"),
+                    "natal_sign_fa": natal_data.get("sign_fa"),
 
-                        "natal_house":
-                            natal_body.get(
-                                "house"
-                            ),
+                    "natal_house": natal_data.get("house"),
 
-                        "natal_house_name_fa":
-                            natal_body.get(
-                                "house_name_fa"
-                            ),
+                    "transit_retrograde": transit_data.get(
+                        "retrograde",
+                        False,
+                    ),
+                }
+            )
 
-                        "transit_sign":
-                            transit.get(
-                                "sign_fa"
-                            ),
-
-                        "transit_degree":
-                            transit.get(
-                                "degree_in_sign"
-                            ),
-                    })
-
-                    break
-
-    result.sort(
-        key=lambda x: x["orb"]
+    # Most important first.
+    results.sort(
+        key=lambda x: (
+            -x["importance"],
+            x["orb"],
+        )
     )
 
-    return result
+    return results
 
 
 # =========================================================
-# Current transits
+# INTERPRETATION
+# =========================================================
+
+def _interpret_natal_transit(item: dict) -> str:
+
+    transit = item["transit_planet_fa"]
+    natal = item["natal_target_fa"]
+    aspect = item["aspect_fa"]
+
+    if item["aspect"] == "trine":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ این الگو معمولاً نماد جریان هماهنگ‌تر "
+            f"و امکان استفاده راحت‌تر از انرژی این دو نقطه است."
+        )
+
+    if item["aspect"] == "sextile":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ می‌تواند یک فرصت قابل استفاده ایجاد کند، "
+            f"به‌خصوص اگر آگاهانه برای آن اقدام شود."
+        )
+
+    if item["aspect"] == "square":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ این الگو بیشتر به فشار، اصطکاک یا نیاز "
+            f"به تغییر و سازگاری اشاره می‌کند."
+        )
+
+    if item["aspect"] == "opposition":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ ممکن است یک محور دوگانه یا کشمکش "
+            f"بین دو حوزه زندگی را برجسته کند."
+        )
+
+    if item["aspect"] == "conjunction":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ این موضوع می‌تواند این بخش از چارت "
+            f"را به یکی از نقاط برجسته دوره فعلی تبدیل کند."
+        )
+
+    if item["aspect"] == "quincunx":
+
+        return (
+            f"ترانزیت {transit} با {natal} در حالت {aspect} "
+            f"قرار دارد؛ معمولاً نیازمند تنظیم، اصلاح یا "
+            f"تغییر زاویه نگاه است."
+        )
+
+    return (
+        f"ترانزیت {transit} و {natal} "
+        f"نیازمند توجه بیشتر است."
+    )
+
+
+# =========================================================
+# MAIN TRANSIT FUNCTION
 # =========================================================
 
 def get_today_transits():
@@ -368,93 +629,99 @@ def get_today_transits():
         jd
     )
 
-    transits = _calculate_transit_aspects(
+    transit_aspects = _calculate_transit_aspects(
         positions
     )
 
-    return {
-        "status": "ok",
+    # -----------------------------------------------------
+    # Load natal chart lazily.
+    # This avoids circular imports.
+    # -----------------------------------------------------
 
-        "generated_at":
-            now.isoformat(),
+    natal_transits = []
 
-        "positions":
-            positions,
+    try:
 
-        "transits":
-            transits,
-    }
+        import natal
 
+        natal_chart = natal.get_natal_chart()
 
-# =========================================================
-# Full analysis
-# =========================================================
-
-def get_full_transit_analysis():
-
-    now = datetime.now(
-        timezone.utc
-    )
-
-    jd = _to_julian_day(
-        now
-    )
-
-    positions = _calculate_positions(
-        jd
-    )
-
-    transit_aspects = (
-        _calculate_transit_aspects(
-            positions
-        )
-    )
-
-    natal_chart = (
-        natal.get_natal_chart()
-    )
-
-    natal_transits = (
-        _calculate_natal_transits(
+        natal_transits = _calculate_natal_transits(
             positions,
             natal_chart,
         )
-    )
+
+        for item in natal_transits:
+            item["interpretation"] = (
+                _interpret_natal_transit(item)
+            )
+
+    except Exception as exc:
+
+        natal_transits = []
+
+        print(
+            "Natal transit calculation error:",
+            repr(exc),
+        )
 
     return {
         "status": "ok",
 
-        "generated_at":
-            now.isoformat(),
+        "generated_at": now.isoformat(),
 
-        "current_positions":
-            positions,
+        "ephemeris_path": str(
+            EPHE_PATH
+        ),
 
-        "transit_aspects":
-            transit_aspects,
+        "positions": positions,
 
-        "natal_transits":
-            natal_transits,
+        "transits": transit_aspects,
+
+        "natal_transits": natal_transits,
+
+        "summary": {
+            "planet_count": len(
+                positions
+            ),
+
+            "transit_aspect_count": len(
+                transit_aspects
+            ),
+
+            "natal_transit_count": len(
+                natal_transits
+            ),
+
+            "important_natal_transits": len(
+                [
+                    x
+                    for x in natal_transits
+                    if x["importance"] >= 6
+                ]
+            ),
+        },
     }
 
 
 # =========================================================
-# Compatibility with advisor
+# COMPATIBILITY FUNCTION FOR ADVISOR
 # =========================================================
 
 def detect_aspects(
-    natal_chart=None,
+    natal_chart: dict | None = None
 ):
 
-    if natal_chart is None:
-        natal_chart = (
-            natal.get_natal_chart()
+    data = get_today_transits()
+
+    if natal_chart is not None:
+
+        return _calculate_natal_transits(
+            data["positions"],
+            natal_chart,
         )
 
-    analysis = (
-        get_full_transit_analysis()
+    return data.get(
+        "natal_transits",
+        []
     )
-
-    return analysis[
-        "natal_transits"
-    ]
