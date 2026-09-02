@@ -46,20 +46,19 @@ def get_natal_chart():
 
     chart = {}
     for name, code in PLANETS.items():
-        # خروجی swe.calc یک tuple است؛ ما فقط دو مقدار اول را می‌گیریم
-        result = swe.calc(jd, code)
-        lon = result[0]   # طول دایره‌البروجی (درجه)
-        lat = result[1]   # عرض
+    result = swe.calc(jd, code)
 
-        # اینجا فقط lon (عدد) وارد تابع می‌شود، نه tuple
-        sign, pos_in_sign = _deg_to_sign(lon)
+    lon = result[0][0]
+    lat = result[0][1]
 
-        chart[name] = {
-            "longitude": lon,
-            "latitude": lat,
-            "sign": sign,
-            "degree_in_sign": pos_in_sign,
-        }
+    sign, pos_in_sign = _deg_to_sign(lon)
+
+    chart[name] = {
+        "longitude": lon,
+        "latitude": lat,
+        "sign": sign,
+        "degree_in_sign": pos_in_sign,
+    }
 
     return {
         "status": "ok",
