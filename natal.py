@@ -1,6 +1,6 @@
 import swisseph as swe
 from datetime import datetime
-
+# updated version
 # فولدر ephe باید کنار main.py باشد و سه فایل:
 # sepl_18.se1, semo_18.se1, seas_18.se1 داخلش باشند.
 swe.set_ephe_path("ephe")
