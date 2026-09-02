@@ -7,17 +7,23 @@ import ephemeris
 import advisor
 
 app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
+from pathlib import Path
 
 @app.get("/debug")
 def debug():
     return {
+        "debug": "NEW_VERSION_2026_09_02",
         "commit": Path("deployed_commit.txt").read_text().strip(),
         "cwd": str(Path.cwd()),
+        "main_file": __file__,
+        "natal_exists": Path("natal.py").exists(),
+        "ephemeris_exists": Path("ephemeris.py").exists(),
         "natal": str(Path("natal.py").resolve()),
         "ephemeris": str(Path("ephemeris.py").resolve()),
     }
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 @app.get("/", response_class=HTMLResponse)
 def root():
     with open("index.html", "r", encoding="utf-8") as f:
