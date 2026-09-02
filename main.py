@@ -12,11 +12,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/debug")
 def debug():
-    import natal
-    import ephemeris
     return {
-        "natal_file": natal.__file__,
-        "ephemeris_file": ephemeris.__file__,
+        "commit": Path("deployed_commit.txt").read_text().strip(),
+        "cwd": str(Path.cwd()),
+        "natal": str(Path("natal.py").resolve()),
+        "ephemeris": str(Path("ephemeris.py").resolve()),
     }
 @app.get("/", response_class=HTMLResponse)
 def root():
