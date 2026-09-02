@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+appfastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import traceback
@@ -6,6 +6,7 @@ import natal
 import ephemeris
 import advisor
 
+print("🔥 NEW MAIN.PY IS RUNNING 🔥")
 app = FastAPI()
 from pathlib import Path
 
