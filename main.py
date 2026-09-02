@@ -6,6 +6,10 @@ import natal
 import ephemeris
 import advisor
 
+app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/debug")
 def debug():
     import natal
@@ -14,10 +18,6 @@ def debug():
         "natal_file": natal.__file__,
         "ephemeris_file": ephemeris.__file__,
     }
-app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 @app.get("/", response_class=HTMLResponse)
 def root():
     with open("index.html", "r", encoding="utf-8") as f:
