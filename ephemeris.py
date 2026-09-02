@@ -1,6 +1,8 @@
 import swisseph as swe
 from datetime import datetime
-swe.setephepath("ephe")
+
+swe.set_ephe_path("ephe")
+
 PLANETS = {
     "Sun": swe.SUN,
     "Moon": swe.MOON,
@@ -8,7 +10,7 @@ PLANETS = {
     "Venus": swe.VENUS,
     "Mars": swe.MARS,
     "Jupiter": swe.JUPITER,
-    "Saturn": swe.SATURN
+    "Saturn": swe.SATURN,
 }
 
 ASPECTS = {
@@ -16,18 +18,18 @@ ASPECTS = {
     "sextile": 60,
     "square": 90,
     "trine": 120,
-    "opposition": 180
+    "opposition": 180,
 }
 
-ORB = 3.0  # درجهٔ مجاز اختلاف برای تشخیص аспект
+ORB = 3.0  # درجهٔ مجاز اختلاف برای تشخیص آسپکت
 
 
 def _to_julian_day(dt: datetime):
-    return swe.julday(dt.year, dt.month, dt.day,
-                      dt.hour + dt.minute / 60.0, swe.GREG_CAL)
+    h = dt.hour + dt.minute / 60.0
+    return swe.julday(dt.year, dt.month, dt.day, h, swe.GREG_CAL)
 
 
-def _deg_diff(a, b):
+def _deg_diff(a: float, b: float):
     diff = abs(a - b) % 360
     if diff > 180:
         diff = 360 - diff
@@ -39,9 +41,16 @@ def get_today_transits():
     jd = _to_julian_day(now)
 
     positions = {}
+    details = {}
     for name, code in PLANETS.items():
         lon, lat, dist, speed_lon = swe.calc(jd, code)
         positions[name] = lon
+        details[name] = {
+            "longitude": lon,
+            "latitude": lat,
+            "distance": dist,
+            "speed_longitude": speed_lon,
+        }
 
     transits = []
     names = list(positions.keys())
@@ -55,19 +64,19 @@ def get_today_transits():
                         "planet1": p1,
                         "planet2": p2,
                         "aspect": aspect_name,
-                        "exact_diff": diff
+                        "exact_diff": diff,
                     })
 
     return {
         "status": "ok",
         "generated_at": now.isoformat(),
         "positions": positions,
-        "transits": transits
+        "details": details,
+        "transits": transits,
     }
 
 
 def detect_aspects(natal_chart: dict | None):
-    # فعلاً از ترانزیت‌های امروز استفاده می‌کنیم؛
-    # بعداً می‌تونی نسبت به چارت تولد هم محاسبه کنی.
+    # فعلاً فقط ترانزیت‌های امروز؛ بعداً می‌تونی نسبت به چارت تولد هم توسعه بدی
     today = get_today_transits()
     return today.get("transits", [])
