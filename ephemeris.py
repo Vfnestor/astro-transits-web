@@ -1,4 +1,4 @@
-defisseph as swe
+import swisseph as swe
 from datetime import datetime
 
 swe.set_ephe_path("ephe")
@@ -35,6 +35,7 @@ def _deg_diff(a: float, b: float):
         diff = 360 - diff
     return diff
 
+
 def get_today_transits():
     now = datetime.utcnow()
     jd = _to_julian_day(now)
@@ -69,6 +70,5 @@ def get_today_transits():
 
 
 def detect_aspects(natal_chart: dict | None):
-    # فعلاً فقط ترانزیت‌های امروز؛ بعداً می‌تونی نسبت به چارت تولد هم توسعه بدی
     today = get_today_transits()
     return today.get("transits", [])
