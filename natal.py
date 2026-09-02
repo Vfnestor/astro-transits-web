@@ -662,8 +662,8 @@ def get_natal_chart():
         "julian_day": jd,
 
         "angles": {
-            "ascendant": ascendant := house_data["ascendant"],
-            "mc": mc := house_data["mc"],
+            "ascendant": house_data["ascendant"],
+            "mc": house_data["mc"],
         },
 
         "houses": houses,
