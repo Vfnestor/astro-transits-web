@@ -24,7 +24,7 @@ SIGNS = [
 BIRTH_DATE = (1990, 3, 21)   # سال، ماه، روز
 BIRTH_TIME = (12, 0)         # ساعت، دقیقه
 BIRTH_LAT = 35.6892          # تهران
-BIRTH_LON = 51.3890
+BIRTH_LON = 51.3890          # تهران
 
 
 def _to_julian_day(year, month, day, hour, minute):
@@ -33,6 +33,7 @@ def _to_julian_day(year, month, day, hour, minute):
 
 
 def _deg_to_sign(deg: float):
+    # deg باید یک عدد (float) باشد، نه tuple
     sign_index = int(deg // 30)
     return SIGNS[sign_index], deg % 30
 
@@ -45,10 +46,12 @@ def get_natal_chart():
 
     chart = {}
     for name, code in PLANETS.items():
+        # خروجی swe.calc یک tuple است؛ ما فقط دو مقدار اول را می‌گیریم
         result = swe.calc(jd, code)
-        lon = result[0]   # فقط درجهٔ طول
+        lon = result[0]   # طول دایره‌البروجی (درجه)
         lat = result[1]   # عرض
 
+        # اینجا فقط lon (عدد) وارد تابع می‌شود، نه tuple
         sign, pos_in_sign = _deg_to_sign(lon)
 
         chart[name] = {
