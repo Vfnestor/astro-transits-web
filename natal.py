@@ -53,8 +53,6 @@ def get_natal_chart():
         chart[name] = {
             "longitude": lon,
             "latitude": lat,
-            "distance": dist,
-            "speed_longitude": speed_lon,
             "sign": sign,
             "degree_in_sign": pos_in_sign,
         }
