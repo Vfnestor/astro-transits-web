@@ -30,6 +30,7 @@ def _to_julian_day(dt: datetime):
 
 
 def _deg_diff(a: float, b: float):
+    # a و b باید عدد باشند (درجهٔ طول)، نه tuple
     diff = abs(a - b) % 360
     if diff > 180:
         diff = 360 - diff
@@ -43,8 +44,8 @@ def get_today_transits():
     positions = {}
     for name, code in PLANETS.items():
         result = swe.calc(jd, code)
-        lon = result[0]   # فقط درجه
-        positions[name] = lon
+        lon = result[0]   # فقط درجهٔ طول
+        positions[name] = lon  # اینجا فقط عدد ذخیره می‌شود، نه tuple
 
     transits = []
     names = list(positions.keys())
@@ -70,5 +71,6 @@ def get_today_transits():
 
 
 def detect_aspects(natal_chart: dict | None):
+    # فعلاً فقط ترانزیت‌های امروز؛ بعداً می‌تونی نسبت به چارت تولد هم توسعه بدی
     today = get_today_transits()
     return today.get("transits", [])
