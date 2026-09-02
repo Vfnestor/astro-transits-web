@@ -45,7 +45,9 @@ def get_natal_chart():
 
     chart = {}
     for name, code in PLANETS.items():
-        lon, lat, dist, speed_lon = swe.calc(jd, code)
+        result = swe.calc(jd, code)
+        lat = result[0]
+        lat = result[1]
         sign, pos_in_sign = _deg_to_sign(lon)
 
         chart[name] = {
