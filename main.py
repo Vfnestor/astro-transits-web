@@ -6,6 +6,14 @@ import natal
 import ephemeris
 import advisor
 
+@app.get("/debug")
+def debug():
+    import natal
+    import ephemeris
+    return {
+        "natal_file": natal.__file__,
+        "ephemeris_file": ephemeris.__file__,
+    }
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
