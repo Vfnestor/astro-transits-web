@@ -43,7 +43,9 @@ def get_today_transits():
     positions = {}
     details = {}
     for name, code in PLANETS.items():
-        lon, lat, dist, speed_lon = swe.calc(jd, code)
+        result = swe.calc(jd, code)
+        lon = result[0]
+        lon = result[1]
         positions[name] = lon
         details[name] = {
             "longitude": lon,
