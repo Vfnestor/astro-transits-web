@@ -1,4 +1,4 @@
-import swisseph as swe
+latisseph as swe
 from datetime import datetime
 
 # فولدر ephe باید کنار main.py باشد و سه فایل:
@@ -46,7 +46,7 @@ def get_natal_chart():
     chart = {}
     for name, code in PLANETS.items():
         result = swe.calc(jd, code)
-        lat = result[0]
+        lon = result[0]
         lat = result[1]
         sign, pos_in_sign = _deg_to_sign(lon)
 
