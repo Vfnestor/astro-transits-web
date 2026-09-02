@@ -1,4 +1,4 @@
-latisseph as swe
+import swisseph as swe
 from datetime import datetime
 
 # فولدر ephe باید کنار main.py باشد و سه فایل:
