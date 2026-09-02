@@ -42,17 +42,20 @@ def get_today_transits():
     jd = _to_julian_day(now)
 
     positions = {}
+
     for name, code in PLANETS.items():
-    result = swe.calc(jd, code)
-    lon = result[0][0]
-    positions[name] = lon
+        result = swe.calc(jd, code)
+        lon = result[0][0]
+        positions[name] = lon
 
     transits = []
     names = list(positions.keys())
+
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
             p1, p2 = names[i], names[j]
             diff = _deg_diff(positions[p1], positions[p2])
+
             for aspect_name, aspect_deg in ASPECTS.items():
                 if abs(diff - aspect_deg) <= ORB:
                     transits.append({
