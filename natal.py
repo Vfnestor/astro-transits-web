@@ -46,8 +46,9 @@ def get_natal_chart():
     chart = {}
     for name, code in PLANETS.items():
         result = swe.calc(jd, code)
-        lon = result[0]
-        lat = result[1]
+        lon = result[0]   # فقط درجهٔ طول
+        lat = result[1]   # عرض
+
         sign, pos_in_sign = _deg_to_sign(lon)
 
         chart[name] = {
