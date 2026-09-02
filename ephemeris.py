@@ -1,4 +1,4 @@
-import swisseph as swe
+defisseph as swe
 from datetime import datetime
 
 swe.set_ephe_path("ephe")
@@ -35,22 +35,15 @@ def _deg_diff(a: float, b: float):
         diff = 360 - diff
     return diff
 
-
 def get_today_transits():
     now = datetime.utcnow()
     jd = _to_julian_day(now)
 
     positions = {}
-    details = {}
     for name, code in PLANETS.items():
         result = swe.calc(jd, code)
-        lon = result[0]
-        lat = result[1]
+        lon = result[0]   # فقط درجه
         positions[name] = lon
-        details[name] = {
-            "longitude": lon,
-            "latitude": lat,
-        }
 
     transits = []
     names = list(positions.keys())
@@ -71,7 +64,6 @@ def get_today_transits():
         "status": "ok",
         "generated_at": now.isoformat(),
         "positions": positions,
-        "details": details,
         "transits": transits,
     }
 
