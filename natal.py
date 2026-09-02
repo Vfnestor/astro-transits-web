@@ -1,14 +1,9 @@
 import swisseph as swe
 from datetime import datetime
-swe.setephepath("ephe")
-# تنظیم مسیر دیتابیس سیارات (در آینده می‌تونی فایل‌های ephemeris رو روی Render بذاری)
-# swe.set_ephe_path('/opt/render/project/src/ephe')  # فعلاً کامنت
 
-# نمونهٔ دادهٔ تولد؛ بعداً می‌تونی از فرم فرانت‌اند بگیری
-BIRTH_DATE = (1990, 3, 21)   # سال، ماه، روز
-BIRTH_TIME = (12, 0)         # ساعت، دقیقه
-BIRTH_LAT = 35.6892          # تهران
-BIRTH_LON = 51.3890
+# فولدر ephe باید کنار main.py باشد و سه فایل:
+# sepl_18.se1, semo_18.se1, seas_18.se1 داخلش باشند.
+swe.set_ephe_path("ephe")
 
 PLANETS = {
     "Sun": swe.SUN,
@@ -17,13 +12,19 @@ PLANETS = {
     "Venus": swe.VENUS,
     "Mars": swe.MARS,
     "Jupiter": swe.JUPITER,
-    "Saturn": swe.SATURN
+    "Saturn": swe.SATURN,
 }
 
 SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
 ]
+
+# نمونهٔ تولد؛ بعداً می‌تونی از فرم فرانت‌اند بگیری
+BIRTH_DATE = (1990, 3, 21)   # سال، ماه، روز
+BIRTH_TIME = (12, 0)         # ساعت، دقیقه
+BIRTH_LAT = 35.6892          # تهران
+BIRTH_LON = 51.3890
 
 
 def _to_julian_day(year, month, day, hour, minute):
@@ -31,7 +32,7 @@ def _to_julian_day(year, month, day, hour, minute):
     return swe.julday(year, month, day, h, swe.GREG_CAL)
 
 
-def _deg_to_sign(deg):
+def _deg_to_sign(deg: float):
     sign_index = int(deg // 30)
     return SIGNS[sign_index], deg % 30
 
@@ -46,10 +47,14 @@ def get_natal_chart():
     for name, code in PLANETS.items():
         lon, lat, dist, speed_lon = swe.calc(jd, code)
         sign, pos_in_sign = _deg_to_sign(lon)
+
         chart[name] = {
             "longitude": lon,
+            "latitude": lat,
+            "distance": dist,
+            "speed_longitude": speed_lon,
             "sign": sign,
-            "degree_in_sign": pos_in_sign
+            "degree_in_sign": pos_in_sign,
         }
 
     return {
@@ -57,7 +62,7 @@ def get_natal_chart():
         "generated_at": datetime.utcnow().isoformat(),
         "location": {
             "lat": BIRTH_LAT,
-            "lon": BIRTH_LON
+            "lon": BIRTH_LON,
         },
-        "chart": chart
+        "chart": chart,
     }
