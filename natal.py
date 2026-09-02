@@ -1,26 +1,31 @@
 import swisseph as swe
-from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta, timezone
+
 
 # =========================================================
 # Swiss Ephemeris
 # =========================================================
 
-swe.set_ephe_path("ephe")
+BASE_DIR = __import__("pathlib").Path(__file__).resolve().parent
+
+swe.set_ephe_path(
+    str(BASE_DIR / "ephe")
+)
 
 
 # =========================================================
-# اطلاعات تولد نمونه
-# 21 March 1990 - 12:00 - Tehran
+# اطلاعات تولد
 # =========================================================
 
-BIRTH_DATE = (1990, 3, 21)
-BIRTH_TIME = (12, 0)
+BIRTH_DATE = (1995, 3, 11)
+BIRTH_TIME = (20, 35)
 
-BIRTH_LAT = 35.6892
-BIRTH_LON = 51.3890
+BIRTH_LAT = 35.7063066
+BIRTH_LON = 51.4509970
 
-# ساعت رسمی تهران در تاریخ نمونه
-# برای تبدیل ساعت محلی به UTC
+# تهران در 11 مارس 1995
+# UTC+3:30
 BIRTH_UTC_OFFSET = 3.5
 
 
@@ -43,7 +48,7 @@ PLANETS = {
 
 
 # =========================================================
-# گره‌های ماه
+# گره‌ها
 # =========================================================
 
 NODES = {
@@ -87,25 +92,58 @@ SIGN_NAMES_FA = {
 }
 
 
+PLANET_NAMES_FA = {
+    "Sun": "خورشید",
+    "Moon": "ماه",
+    "Mercury": "عطارد",
+    "Venus": "زهره",
+    "Mars": "مریخ",
+    "Jupiter": "مشتری",
+    "Saturn": "زحل",
+    "Uranus": "اورانوس",
+    "Neptune": "نپتون",
+    "Pluto": "پلوتو",
+    "North Node": "گره شمالی",
+    "South Node": "گره جنوبی",
+}
+
+
+PLANET_SYMBOLS = {
+    "Sun": "☀",
+    "Moon": "☽",
+    "Mercury": "☿",
+    "Venus": "♀",
+    "Mars": "♂",
+    "Jupiter": "♃",
+    "Saturn": "♄",
+    "Uranus": "♅",
+    "Neptune": "♆",
+    "Pluto": "♇",
+    "North Node": "☊",
+    "South Node": "☋",
+}
+
+
 # =========================================================
 # خانه‌ها
 # =========================================================
 
 HOUSE_SYSTEM = b"P"
 
-HOUSE_NAMES = {
-    1: "First House",
-    2: "Second House",
-    3: "Third House",
-    4: "Fourth House",
-    5: "Fifth House",
-    6: "Sixth House",
-    7: "Seventh House",
-    8: "Eighth House",
-    9: "Ninth House",
-    10: "Tenth House",
-    11: "Eleventh House",
-    12: "Twelfth House",
+
+HOUSE_NAMES_FA = {
+    1: "خانه اول",
+    2: "خانه دوم",
+    3: "خانه سوم",
+    4: "خانه چهارم",
+    5: "خانه پنجم",
+    6: "خانه ششم",
+    7: "خانه هفتم",
+    8: "خانه هشتم",
+    9: "خانه نهم",
+    10: "خانه دهم",
+    11: "خانه یازدهم",
+    12: "خانه دوازدهم",
 }
 
 
@@ -117,49 +155,55 @@ ASPECTS = {
     "conjunction": {
         "angle": 0,
         "orb": 8.0,
+        "name_fa": "هم‌نشینی",
     },
+
     "opposition": {
         "angle": 180,
         "orb": 8.0,
+        "name_fa": "مقابله",
     },
+
     "trine": {
         "angle": 120,
         "orb": 7.0,
+        "name_fa": "تثلیث",
     },
+
     "square": {
         "angle": 90,
         "orb": 7.0,
+        "name_fa": "تربیع",
     },
+
     "sextile": {
         "angle": 60,
         "orb": 5.0,
+        "name_fa": "تسدیس",
     },
+
     "quincunx": {
         "angle": 150,
         "orb": 3.0,
+        "name_fa": "کوینکانکس",
     },
 }
 
 
 # =========================================================
-# ابزارهای ریاضی
+# ابزارها
 # =========================================================
 
-def _normalize_degree(deg: float) -> float:
-    """
-    تبدیل درجه به بازه 0 تا 360
-    """
+def _normalize_degree(deg):
     return float(deg) % 360.0
 
 
-def _deg_to_sign(deg: float):
-    """
-    تبدیل طول دایره البروج به برج و درجه داخل برج.
-    """
+def _deg_to_sign(deg):
 
     deg = _normalize_degree(deg)
 
     sign_index = int(deg // 30)
+
     degree_in_sign = deg % 30
 
     sign = SIGNS[sign_index]
@@ -167,41 +211,51 @@ def _deg_to_sign(deg: float):
     return sign, degree_in_sign
 
 
-def _format_position(deg: float):
-    """
-    ساخت اطلاعات کامل یک موقعیت نجومی.
-    """
+def _format_position(deg):
 
     deg = _normalize_degree(deg)
 
     sign, degree_in_sign = _deg_to_sign(deg)
 
     degree = int(degree_in_sign)
-    minute_float = (degree_in_sign - degree) * 60
+
+    minute_float = (
+        degree_in_sign - degree
+    ) * 60
+
     minute = int(minute_float)
 
-    second = round((minute_float - minute) * 60, 2)
+    second = round(
+        (minute_float - minute) * 60,
+        2,
+    )
 
     return {
-        "longitude": deg,
+        "longitude": round(deg, 6),
         "sign": sign,
-        "sign_fa": SIGN_NAMES_FA.get(sign, sign),
-        "degree_in_sign": degree_in_sign,
+        "sign_fa": SIGN_NAMES_FA[sign],
+        "degree_in_sign": round(
+            degree_in_sign,
+            6,
+        ),
         "degree": degree,
         "minute": minute,
         "second": second,
+        "formatted": (
+            f"{degree}° "
+            f"{minute:02d}′ "
+            f"{second:04.1f}″ "
+            f"{SIGN_NAMES_FA[sign]}"
+        ),
     }
 
 
-def _angular_difference(a: float, b: float) -> float:
-    """
-    کوتاه‌ترین فاصله بین دو درجه.
-    """
+def _angular_difference(a, b):
 
-    a = _normalize_degree(a)
-    b = _normalize_degree(b)
-
-    diff = abs(a - b)
+    diff = abs(
+        _normalize_degree(a)
+        - _normalize_degree(b)
+    )
 
     if diff > 180:
         diff = 360 - diff
@@ -210,13 +264,16 @@ def _angular_difference(a: float, b: float) -> float:
 
 
 # =========================================================
-# تبدیل ساعت محلی به Julian Day
+# Local → UTC
 # =========================================================
 
-def _to_julian_day(year, month, day, hour, minute):
-    """
-    تبدیل تاریخ و ساعت محلی تولد به Julian Day.
-    """
+def _to_julian_day(
+    year,
+    month,
+    day,
+    hour,
+    minute,
+):
 
     local_datetime = datetime(
         year,
@@ -226,14 +283,17 @@ def _to_julian_day(year, month, day, hour, minute):
         minute,
     )
 
-    utc_datetime = local_datetime - timedelta(
-        hours=BIRTH_UTC_OFFSET
+    utc_datetime = (
+        local_datetime
+        - timedelta(
+            hours=BIRTH_UTC_OFFSET
+        )
     )
 
     utc_hour = (
         utc_datetime.hour
-        + utc_datetime.minute / 60.0
-        + utc_datetime.second / 3600.0
+        + utc_datetime.minute / 60
+        + utc_datetime.second / 3600
     )
 
     return swe.julday(
@@ -246,31 +306,35 @@ def _to_julian_day(year, month, day, hour, minute):
 
 
 # =========================================================
-# محاسبه موقعیت سیارات
+# سیارات
 # =========================================================
 
 def _calculate_planets(jd):
-    """
-    محاسبه موقعیت سیارات.
-    """
 
     positions = {}
 
     for name, code in PLANETS.items():
 
-        result = swe.calc(jd, code)
+        result = swe.calc(
+            jd,
+            code,
+        )
 
-        # ساختار pyswisseph:
-        # result[0] = tuple موقعیت‌ها
-        # result[0][0] = longitude
-        # result[0][1] = latitude
+        values = result[0]
 
-        lon = float(result[0][0])
-        lat = float(result[0][1])
+        lon = float(values[0])
+        lat = float(values[1])
+        speed = float(values[3])
 
-        position = _format_position(lon)
+        position = _format_position(
+            lon
+        )
 
         position["latitude"] = lat
+        position["speed"] = speed
+        position["retrograde"] = speed < 0
+        position["name_fa"] = PLANET_NAMES_FA[name]
+        position["symbol"] = PLANET_SYMBOLS[name]
 
         positions[name] = position
 
@@ -278,40 +342,49 @@ def _calculate_planets(jd):
 
 
 # =========================================================
-# محاسبه گره‌های ماه
+# Nodes
 # =========================================================
 
 def _calculate_nodes(jd):
-    """
-    محاسبه گره شمالی و جنوبی.
-    """
 
-    result = swe.calc(jd, swe.MEAN_NODE)
+    result = swe.calc(
+        jd,
+        swe.MEAN_NODE,
+    )
 
-    north_lon = float(result[0][0])
+    north_lon = float(
+        result[0][0]
+    )
 
     south_lon = _normalize_degree(
         north_lon + 180
     )
 
-    north_position = _format_position(north_lon)
-    south_position = _format_position(south_lon)
+    north = _format_position(
+        north_lon
+    )
+
+    south = _format_position(
+        south_lon
+    )
+
+    north["name_fa"] = "گره شمالی"
+    north["symbol"] = "☊"
+
+    south["name_fa"] = "گره جنوبی"
+    south["symbol"] = "☋"
 
     return {
-        "North Node": north_position,
-        "South Node": south_position,
+        "North Node": north,
+        "South Node": south,
     }
 
 
 # =========================================================
-# محاسبه خانه‌ها و زوایا
+# Houses
 # =========================================================
 
 def _calculate_houses(jd):
-    """
-    محاسبه 12 خانه، Ascendant و MC.
-    سیستم خانه‌ها: Placidus
-    """
 
     houses, ascmc = swe.houses(
         jd,
@@ -324,41 +397,50 @@ def _calculate_houses(jd):
 
     for index in range(12):
 
-        cusp_degree = float(houses[index])
+        number = index + 1
 
-        house_number = index + 1
+        cusp = float(
+            houses[index]
+        )
 
-        position = _format_position(cusp_degree)
-
-        house_data[str(house_number)] = {
-            "house": house_number,
-            "name": HOUSE_NAMES[house_number],
-            **position,
+        house_data[str(number)] = {
+            "house": number,
+            "name_fa": HOUSE_NAMES_FA[number],
+            **_format_position(cusp),
         }
 
-    ascendant = float(ascmc[0])
-    mc = float(ascmc[1])
+    ascendant = _format_position(
+        float(ascmc[0])
+    )
+
+    mc = _format_position(
+        float(ascmc[1])
+    )
 
     return {
         "houses": house_data,
-        "ascendant": _format_position(ascendant),
-        "mc": _format_position(mc),
+        "ascendant": ascendant,
+        "mc": mc,
     }
 
 
 # =========================================================
-# تعیین خانه یک سیاره
+# Find house
 # =========================================================
 
-def _find_house(longitude: float, houses: dict) -> int:
-    """
-    پیدا کردن خانه‌ای که سیاره داخل آن قرار دارد.
-    """
+def _find_house(
+    longitude,
+    houses,
+):
 
-    longitude = _normalize_degree(longitude)
+    longitude = _normalize_degree(
+        longitude
+    )
 
     cusps = [
-        float(houses[str(i)]["longitude"])
+        float(
+            houses[str(i)]["longitude"]
+        )
         for i in range(1, 13)
     ]
 
@@ -369,92 +451,122 @@ def _find_house(longitude: float, houses: dict) -> int:
 
         if i == 11:
 
-            if longitude >= start or longitude < end:
+            if (
+                longitude >= start
+                or longitude < end
+            ):
                 return 12
 
         else:
 
-            if start <= longitude < end:
+            if (
+                start <= longitude < end
+            ):
                 return i + 1
 
     return 12
 
 
 # =========================================================
-# اضافه کردن خانه به سیارات
+# Assign houses
 # =========================================================
 
-def _assign_houses(planet_positions, houses):
-    """
-    مشخص کردن خانه هر سیاره.
-    """
+def _assign_houses(
+    bodies,
+    houses,
+):
 
-    for name, data in planet_positions.items():
+    for name, data in bodies.items():
 
-        house_number = _find_house(
+        house = _find_house(
             data["longitude"],
             houses,
         )
 
-        data["house"] = house_number
-        data["house_name"] = HOUSE_NAMES[house_number]
+        data["house"] = house
+        data["house_name_fa"] = (
+            HOUSE_NAMES_FA[house]
+        )
 
-    return planet_positions
+    return bodies
 
 
 # =========================================================
-# محاسبه جنبه‌های چارت تولد
+# Natal aspects
 # =========================================================
 
-def _calculate_aspects(planet_positions):
-    """
-    پیدا کردن جنبه‌های اصلی بین سیارات.
-    """
+def _calculate_aspects(
+    bodies,
+):
 
     aspects = []
 
-    names = list(planet_positions.keys())
+    names = list(
+        bodies.keys()
+    )
 
     for i in range(len(names)):
 
-        for j in range(i + 1, len(names)):
+        for j in range(
+            i + 1,
+            len(names),
+        ):
 
-            planet1 = names[i]
-            planet2 = names[j]
+            p1 = names[i]
+            p2 = names[j]
 
-            lon1 = planet_positions[planet1]["longitude"]
-            lon2 = planet_positions[planet2]["longitude"]
+            lon1 = bodies[p1][
+                "longitude"
+            ]
+
+            lon2 = bodies[p2][
+                "longitude"
+            ]
 
             diff = _angular_difference(
                 lon1,
                 lon2,
             )
 
-            for aspect_name, aspect_info in ASPECTS.items():
+            for aspect_name, info in ASPECTS.items():
 
-                angle = aspect_info["angle"]
-                orb_limit = aspect_info["orb"]
+                target = info["angle"]
 
-                orb = abs(diff - angle)
+                orb = abs(
+                    diff - target
+                )
 
-                if orb <= orb_limit:
+                if orb <= info["orb"]:
 
                     aspects.append({
-                        "planet1": planet1,
-                        "planet2": planet2,
+                        "planet1": p1,
+                        "planet2": p2,
+                        "planet1_fa": PLANET_NAMES_FA[p1],
+                        "planet2_fa": PLANET_NAMES_FA[p2],
                         "aspect": aspect_name,
-                        "angle": angle,
-                        "exact_difference": diff,
-                        "orb": orb,
+                        "aspect_fa": info["name_fa"],
+                        "angle": target,
+                        "exact_difference": round(
+                            diff,
+                            4,
+                        ),
+                        "orb": round(
+                            orb,
+                            4,
+                        ),
                     })
 
                     break
+
+    aspects.sort(
+        key=lambda x: x["orb"]
+    )
 
     return aspects
 
 
 # =========================================================
-# ساخت چارت کامل
+# Full natal chart
 # =========================================================
 
 def get_natal_chart():
@@ -467,33 +579,30 @@ def get_natal_chart():
         BIRTH_TIME[1],
     )
 
-    # سیارات
-    planets = _calculate_planets(jd)
+    planets = _calculate_planets(
+        jd
+    )
 
-    # گره‌ها
-    nodes = _calculate_nodes(jd)
+    nodes = _calculate_nodes(
+        jd
+    )
 
-    # خانه‌ها
-    house_data = _calculate_houses(jd)
+    house_data = _calculate_houses(
+        jd
+    )
 
     houses = house_data["houses"]
 
-    ascendant = house_data["ascendant"]
-    mc = house_data["mc"]
-
-    # اضافه کردن خانه به سیارات
     planets = _assign_houses(
         planets,
         houses,
     )
 
-    # اضافه کردن خانه به گره‌ها
     nodes = _assign_houses(
         nodes,
         houses,
     )
 
-    # همه اجرام برای محاسبه جنبه‌ها
     all_bodies = {}
 
     all_bodies.update(planets)
@@ -503,10 +612,17 @@ def get_natal_chart():
         all_bodies
     )
 
+    generated_at = (
+        datetime.now(
+            timezone.utc
+        )
+        .isoformat()
+    )
+
     return {
         "status": "ok",
 
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": generated_at,
 
         "birth_data": {
             "date": {
@@ -515,26 +631,39 @@ def get_natal_chart():
                 "day": BIRTH_DATE[2],
             },
 
+            "date_fa": "۲۰ اسفند ۱۳۷۳",
+
             "time": {
                 "hour": BIRTH_TIME[0],
                 "minute": BIRTH_TIME[1],
             },
 
+            "time_fa": "۲۰:۳۵",
+
             "utc_offset": BIRTH_UTC_OFFSET,
 
             "location": {
+                "city": "تهران",
                 "latitude": BIRTH_LAT,
                 "longitude": BIRTH_LON,
             },
         },
 
-        "ayanamsa": {
+        "zodiac": {
             "type": "tropical",
+            "name_fa": "تروپیکال",
         },
 
+        "house_system": {
+            "type": "Placidus",
+            "name_fa": "پلاسیدوس",
+        },
+
+        "julian_day": jd,
+
         "angles": {
-            "ascendant": ascendant,
-            "mc": mc,
+            "ascendant": ascendant := house_data["ascendant"],
+            "mc": mc := house_data["mc"],
         },
 
         "houses": houses,
