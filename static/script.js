@@ -7,36 +7,36 @@
 const $ = (id) => document.getElementById(id);
 
 function escapeHtml(value) {
-return String(value ?? "")
-.replaceAll("&", "&")
-.replaceAll("<", "<")
-.replaceAll(">", ">")
-.replaceAll('"', """)
-.replaceAll("'", "'");
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 function positionText(position) {
+    if (!position || typeof position !== "object") {
+        return "—";
+    }
 
-if (!position) {
-    return "—";
-}
+    const degree = position.degree ?? "—";
+    const minute = String(position.minute ?? 0).padStart(2, "0");
+    const sign = position.sign_fa ?? "";
 
-const degree = position.degree ?? "—";
-const minute = String(position.minute ?? 0).padStart(2, "0");
-const sign = position.sign_fa ?? "";
-
-return `${degree}° ${minute}′ ${sign}`;
-
+    return `${degree}° ${minute}′ ${sign}`;
 }
 
 function safeArray(value) {
-return Array.isArray(value) ? value : [];
+    return Array.isArray(value) ? value : [];
 }
 
 function safeObject(value) {
-return value && typeof value === "object"
-? value
-: {};
+    return value &&
+        typeof value === "object" &&
+        !Array.isArray(value)
+        ? value
+        : {};
 }
 
 // =========================================================
@@ -45,32 +45,29 @@ return value && typeof value === "object"
 
 async function api(url, options = {}) {
 
-const response = await fetch(url, options);
+    const response = await fetch(url, options);
 
-let data;
+    let data;
 
-try {
-    data = await response.json();
-} catch {
-    throw new Error("پاسخ نامعتبر از سرور دریافت شد.");
-}
+    try {
+        data = await response.json();
+    } catch {
+        throw new Error("پاسخ نامعتبر از سرور دریافت شد.");
+    }
 
-if (!response.ok) {
-    throw new Error(
-        data?.error ||
-        "خطا در دریافت اطلاعات"
-    );
-}
+    if (!response.ok) {
+        throw new Error(
+            data?.error || "خطا در دریافت اطلاعات"
+        );
+    }
 
-if (data?.status === "error") {
-    throw new Error(
-        data?.error ||
-        "خطای سرور"
-    );
-}
+    if (data?.status === "error") {
+        throw new Error(
+            data?.error || "خطای سرور"
+        );
+    }
 
-return data;
-
+    return data;
 }
 
 // =========================================================
@@ -79,16 +76,15 @@ return data;
 
 function showError(element, error) {
 
-if (!element) {
-    return;
-}
+    if (!element) {
+        return;
+    }
 
-element.innerHTML = `
-    <div class="error">
-        خطا: ${escapeHtml(error?.message || error)}
-    </div>
-`;
-
+    element.innerHTML = `
+        <div class="error">
+            خطا: ${escapeHtml(error?.message || error)}
+        </div>
+    `;
 }
 
 // =========================================================
@@ -97,39 +93,47 @@ element.innerHTML = `
 
 async function loadNatal() {
 
-try {
+    try {
 
-    const data = await api("/natal");
+        const data = await api("/natal");
 
-    const planets = safeObject(data.planets);
-    const angles = safeObject(data.angles);
+        const planets = safeObject(data?.planets);
+        const angles = safeObject(data?.angles);
 
-    $("sunPosition").textContent =
-        positionText(planets.Sun);
+        const sun = $("sunPosition");
+        const moon = $("moonPosition");
+        const asc = $("ascPosition");
+        const mc = $("mcPosition");
 
-    $("moonPosition").textContent =
-        positionText(planets.Moon);
+        if (sun) {
+            sun.textContent = positionText(planets.Sun);
+        }
 
-    $("ascPosition").textContent =
-        positionText(angles.ascendant);
+        if (moon) {
+            moon.textContent = positionText(planets.Moon);
+        }
 
-    $("mcPosition").textContent =
-        positionText(angles.mc);
+        if (asc) {
+            asc.textContent =
+                positionText(angles.ascendant);
+        }
 
-    renderPlanets(data);
+        if (mc) {
+            mc.textContent =
+                positionText(angles.mc);
+        }
 
-    renderHouses(data.houses);
+        renderPlanets(data);
+        renderHouses(data?.houses);
+        renderNatalAspects(data?.aspects);
 
-    renderNatalAspects(data.aspects);
+    } catch (error) {
 
-} catch (error) {
-
-    showError(
-        $("planetTable"),
-        error
-    );
-}
-
+        showError(
+            $("planetTable"),
+            error
+        );
+    }
 }
 
 // =========================================================
@@ -138,74 +142,79 @@ try {
 
 function renderPlanets(data) {
 
-const planets = safeObject(data?.planets);
-const nodes = safeObject(data?.nodes);
+    const planets = safeObject(data?.planets);
+    const nodes = safeObject(data?.nodes);
 
-const bodies = {
-    ...planets,
-    ...nodes
-};
+    const bodies = {
+        ...planets,
+        ...nodes
+    };
 
-if (!Object.keys(bodies).length) {
+    const container = $("planetTable");
 
-    $("planetTable").innerHTML = `
-        <div class="loading">
-            اطلاعات سیارات تولد دریافت نشد.
-        </div>
+    if (!container) {
+        return;
+    }
+
+    if (!Object.keys(bodies).length) {
+
+        container.innerHTML = `
+            <div class="loading">
+                اطلاعات سیارات تولد دریافت نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>جرم</th>
+                    <th>موقعیت</th>
+                    <th>خانه</th>
+                    <th>وضعیت</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    return;
-}
+    for (const [name, body] of Object.entries(bodies)) {
 
-let html = `
-    <table>
-        <thead>
+        const retro = body?.retrograde
+            ? `<span class="retrograde">℞ برگشتی</span>`
+            : "مستقیم";
+
+        html += `
             <tr>
-                <th>جرم</th>
-                <th>موقعیت</th>
-                <th>خانه</th>
-                <th>وضعیت</th>
+                <td>
+                    ${escapeHtml(body?.symbol || "")}
+                    ${escapeHtml(body?.name_fa || name)}
+                </td>
+
+                <td>
+                    ${positionText(body)}
+                </td>
+
+                <td>
+                    ${escapeHtml(body?.house ?? "—")}
+                    ${escapeHtml(body?.house_name_fa || "")}
+                </td>
+
+                <td>
+                    ${retro}
+                </td>
             </tr>
-        </thead>
-        <tbody>
-`;
-
-for (const [name, body] of Object.entries(bodies)) {
-
-    const retro = body?.retrograde
-        ? `<span class="retrograde">℞ برگشتی</span>`
-        : "مستقیم";
+        `;
+    }
 
     html += `
-        <tr>
-            <td>
-                ${escapeHtml(body?.symbol || "")}
-                ${escapeHtml(body?.name_fa || name)}
-            </td>
-
-            <td>
-                ${positionText(body)}
-            </td>
-
-            <td>
-                ${escapeHtml(body?.house ?? "—")}
-                ${escapeHtml(body?.house_name_fa || "")}
-            </td>
-
-            <td>
-                ${retro}
-            </td>
-        </tr>
+            </tbody>
+        </table>
     `;
-}
 
-html += `
-        </tbody>
-    </table>
-`;
-
-$("planetTable").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -214,54 +223,59 @@ $("planetTable").innerHTML = html;
 
 function renderHouses(houses) {
 
-houses = safeObject(houses);
+    const container = $("houseTable");
 
-if (!Object.keys(houses).length) {
+    if (!container) {
+        return;
+    }
 
-    $("houseTable").innerHTML = `
-        <div class="loading">
-            اطلاعات خانه‌ها دریافت نشد.
-        </div>
+    houses = safeObject(houses);
+
+    if (!Object.keys(houses).length) {
+
+        container.innerHTML = `
+            <div class="loading">
+                اطلاعات خانه‌ها دریافت نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>خانه</th>
+                    <th>آغاز خانه</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    return;
-}
+    for (const [number, house] of Object.entries(houses)) {
 
-let html = `
-    <table>
-        <thead>
+        html += `
             <tr>
-                <th>خانه</th>
-                <th>آغاز خانه</th>
-            </tr>
-        </thead>
-        <tbody>
-`;
+                <td>
+                    ${escapeHtml(
+                        house?.name_fa || `خانه ${number}`
+                    )}
+                </td>
 
-for (const [number, house] of Object.entries(houses)) {
+                <td>
+                    ${positionText(house)}
+                </td>
+            </tr>
+        `;
+    }
 
     html += `
-        <tr>
-            <td>
-                ${escapeHtml(
-                    house?.name_fa || `خانه ${number}`
-                )}
-            </td>
-
-            <td>
-                ${positionText(house)}
-            </td>
-        </tr>
+            </tbody>
+        </table>
     `;
-}
 
-html += `
-        </tbody>
-    </table>
-`;
-
-$("houseTable").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -270,72 +284,79 @@ $("houseTable").innerHTML = html;
 
 function renderNatalAspects(aspects) {
 
-aspects = safeArray(aspects);
+    const container = $("natalAspectTable");
 
-if (!aspects.length) {
+    if (!container) {
+        return;
+    }
 
-    $("natalAspectTable").innerHTML = `
-        <div class="loading">
-            جنبه قابل توجهی پیدا نشد.
-        </div>
+    aspects = safeArray(aspects);
+
+    if (!aspects.length) {
+
+        container.innerHTML = `
+            <div class="loading">
+                جنبه قابل توجهی پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>جرم اول</th>
+                    <th>جنبه</th>
+                    <th>جرم دوم</th>
+                    <th>Orb</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    return;
-}
+    aspects.forEach((aspect) => {
 
-let html = `
-    <table>
-        <thead>
+        const orb = Number(aspect?.orb);
+
+        html += `
             <tr>
-                <th>جرم اول</th>
-                <th>جنبه</th>
-                <th>جرم دوم</th>
-                <th>Orb</th>
+                <td>
+                    ${escapeHtml(
+                        aspect?.planet1_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        aspect?.aspect_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        aspect?.planet2_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${
+                        Number.isFinite(orb)
+                            ? orb.toFixed(2) + "°"
+                            : "—"
+                    }
+                </td>
             </tr>
-        </thead>
-        <tbody>
-`;
-
-aspects.forEach((aspect) => {
-
-    const orb = Number(aspect?.orb);
+        `;
+    });
 
     html += `
-        <tr>
-            <td>
-                ${escapeHtml(
-                    aspect?.planet1_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    aspect?.aspect_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    aspect?.planet2_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${Number.isFinite(orb)
-                    ? orb.toFixed(2) + "°"
-                    : "—"}
-            </td>
-        </tr>
+            </tbody>
+        </table>
     `;
-});
 
-html += `
-        </tbody>
-    </table>
-`;
-
-$("natalAspectTable").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -344,43 +365,42 @@ $("natalAspectTable").innerHTML = html;
 
 async function loadTransits() {
 
-try {
+    try {
 
-    const data = await api("/analysis");
+        const data = await api("/analysis");
 
-    /*
-     * ساختار صحیح API:
-     *
-     * data
-     *  ├── natal
-     *  └── transits
-     *       ├── current_positions
-     *       ├── transit_aspects
-     *       └── natal_transits
-     */
+        /*
+         * ساختار API:
+         *
+         * data
+         * ├── natal
+         * └── transits
+         *     ├── current_positions
+         *     ├── transit_aspects
+         *     └── natal_transits
+         */
 
-    const transits = safeObject(data?.transits);
+        const transits = safeObject(data?.transits);
 
-    renderTransitPositions(
-        transits.current_positions
-    );
+        renderTransitPositions(
+            transits.current_positions
+        );
 
-    renderTransitAspects(
-        transits.transit_aspects
-    );
+        renderTransitAspects(
+            transits.transit_aspects
+        );
 
-    renderNatalTransits(
-        transits.natal_transits
-    );
+        renderNatalTransits(
+            transits.natal_transits
+        );
 
-} catch (error) {
+    } catch (error) {
 
-    showError(
-        $("transitPositions"),
-        error
-    );
-}
-
+        showError(
+            $("transitPositions"),
+            error
+        );
+    }
 }
 
 // =========================================================
@@ -389,54 +409,61 @@ try {
 
 function renderTransitPositions(positions) {
 
-positions = safeObject(positions);
+    const container = $("transitPositions");
 
-if (!Object.keys(positions).length) {
+    if (!container) {
+        return;
+    }
 
-    $("transitPositions").innerHTML = `
-        <div class="loading">
-            اطلاعات آسمان امروز دریافت نشد.
-        </div>
-    `;
+    positions = safeObject(positions);
 
-    return;
-}
+    if (!Object.keys(positions).length) {
 
-let html = "";
-
-for (const [name, body] of Object.entries(positions)) {
-
-    html += `
-        <div class="planet-card">
-
-            <div class="planet-symbol">
-                ${escapeHtml(body?.symbol || "")}
+        container.innerHTML = `
+            <div class="loading">
+                اطلاعات آسمان امروز دریافت نشد.
             </div>
+        `;
 
-            <div class="planet-name">
-                ${escapeHtml(
-                    body?.name_fa || name
-                )}
+        return;
+    }
+
+    let html = "";
+
+    for (const [name, body] of Object.entries(positions)) {
+
+        html += `
+            <div class="planet-card">
+
+                <div class="planet-symbol">
+                    ${escapeHtml(body?.symbol || "")}
+                </div>
+
+                <div class="planet-name">
+                    ${escapeHtml(
+                        body?.name_fa || name
+                    )}
+                </div>
+
+                <div class="planet-position">
+                    ${positionText(body)}
+                </div>
+
+                ${
+                    body?.retrograde
+                        ? `
+                            <div class="retrograde">
+                                ℞ برگشتی
+                            </div>
+                        `
+                        : ""
+                }
+
             </div>
+        `;
+    }
 
-            <div class="planet-position">
-                ${positionText(body)}
-            </div>
-
-            ${
-                body?.retrograde
-                    ? `<div class="retrograde">
-                        ℞ برگشتی
-                       </div>`
-                    : ""
-            }
-
-        </div>
-    `;
-}
-
-$("transitPositions").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -445,75 +472,82 @@ $("transitPositions").innerHTML = html;
 
 function renderTransitAspects(aspects) {
 
-aspects = safeArray(aspects);
+    const container = $("transitAspectTable");
 
-if (!aspects.length) {
+    if (!container) {
+        return;
+    }
 
-    $("transitAspectTable").innerHTML = `
-        <div class="loading">
-            در حال حاضر جنبه قابل توجهی
-            بین سیارات پیدا نشد.
-        </div>
+    aspects = safeArray(aspects);
+
+    if (!aspects.length) {
+
+        container.innerHTML = `
+            <div class="loading">
+                در حال حاضر جنبه قابل توجهی
+                بین سیارات پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>سیاره</th>
+                    <th>جنبه</th>
+                    <th>سیاره</th>
+                    <th>Orb</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    return;
-}
+    aspects.forEach((a) => {
 
-let html = `
-    <table>
-        <thead>
+        const orb = Number(a?.orb);
+
+        html += `
             <tr>
-                <th>سیاره</th>
-                <th>جنبه</th>
-                <th>سیاره</th>
-                <th>Orb</th>
+
+                <td>
+                    ${escapeHtml(
+                        a?.planet1_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        a?.aspect_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        a?.planet2_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${
+                        Number.isFinite(orb)
+                            ? orb.toFixed(2) + "°"
+                            : "—"
+                    }
+                </td>
+
             </tr>
-        </thead>
-        <tbody>
-`;
-
-aspects.forEach((a) => {
-
-    const orb = Number(a?.orb);
+        `;
+    });
 
     html += `
-        <tr>
-
-            <td>
-                ${escapeHtml(
-                    a?.planet1_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    a?.aspect_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    a?.planet2_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${Number.isFinite(orb)
-                    ? orb.toFixed(2) + "°"
-                    : "—"}
-            </td>
-
-        </tr>
+            </tbody>
+        </table>
     `;
-});
 
-html += `
-        </tbody>
-    </table>
-`;
-
-$("transitAspectTable").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -522,82 +556,89 @@ $("transitAspectTable").innerHTML = html;
 
 function renderNatalTransits(aspects) {
 
-aspects = safeArray(aspects);
+    const container = $("natalTransitTable");
 
-if (!aspects.length) {
+    if (!container) {
+        return;
+    }
 
-    $("natalTransitTable").innerHTML = `
-        <div class="loading">
-            ترانزیت مهمی نسبت به چارت تولد
-            در محدوده فعلی پیدا نشد.
-        </div>
+    aspects = safeArray(aspects);
+
+    if (!aspects.length) {
+
+        container.innerHTML = `
+            <div class="loading">
+                ترانزیت مهمی نسبت به چارت تولد
+                در محدوده فعلی پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>ترانزیت</th>
+                    <th>جنبه</th>
+                    <th>جرم تولدی</th>
+                    <th>خانه</th>
+                    <th>Orb</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    return;
-}
+    aspects.forEach((a) => {
 
-let html = `
-    <table>
-        <thead>
+        const orb = Number(a?.orb);
+
+        html += `
             <tr>
-                <th>ترانزیت</th>
-                <th>جنبه</th>
-                <th>جرم تولدی</th>
-                <th>خانه</th>
-                <th>Orb</th>
+
+                <td>
+                    ${escapeHtml(
+                        a?.transit_planet_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        a?.aspect_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        a?.natal_planet_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        a?.natal_house_name_fa || "—"
+                    )}
+                </td>
+
+                <td>
+                    ${
+                        Number.isFinite(orb)
+                            ? orb.toFixed(2) + "°"
+                            : "—"
+                    }
+                </td>
+
             </tr>
-        </thead>
-        <tbody>
-`;
-
-aspects.forEach((a) => {
-
-    const orb = Number(a?.orb);
+        `;
+    });
 
     html += `
-        <tr>
-
-            <td>
-                ${escapeHtml(
-                    a?.transit_planet_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    a?.aspect_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    a?.natal_planet_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${escapeHtml(
-                    a?.natal_house_name_fa || "—"
-                )}
-            </td>
-
-            <td>
-                ${Number.isFinite(orb)
-                    ? orb.toFixed(2) + "°"
-                    : "—"}
-            </td>
-
-        </tr>
+            </tbody>
+        </table>
     `;
-});
 
-html += `
-        </tbody>
-    </table>
-`;
-
-$("natalTransitTable").innerHTML = html;
-
+    container.innerHTML = html;
 }
 
 // =========================================================
@@ -606,62 +647,61 @@ $("natalTransitTable").innerHTML = html;
 
 async function askAdvisor() {
 
-const input = $("questionInput");
-const box = $("advisorBox");
+    const input = $("questionInput");
+    const box = $("advisorBox");
 
-if (!input || !box) {
-    return;
-}
-
-const question = input.value.trim();
-
-if (!question) {
-
-    box.textContent =
-        "لطفاً ابتدا سؤال خودت را بنویس.";
-
-    return;
-}
-
-box.textContent =
-    "در حال بررسی چارت تولد و ترانزیت‌ها...";
-
-try {
-
-    const data = await api(
-        "/advisor",
-        {
-            method: "POST",
-
-            headers: {
-                "Content-Type":
-                    "application/json"
-            },
-
-            body: JSON.stringify({
-                question
-            })
-        }
-    );
-
-    if (data?.advice) {
-
-        box.textContent =
-            data.advice;
-
-    } else {
-
-        box.textContent =
-            "پاسخ مشاور دریافت نشد.";
+    if (!input || !box) {
+        return;
     }
 
-} catch (error) {
+    const question = input.value.trim();
+
+    if (!question) {
+
+        box.textContent =
+            "لطفاً ابتدا سؤال خودت را بنویس.";
+
+        return;
+    }
 
     box.textContent =
-        "خطا: " +
-        (error?.message || error);
-}
+        "در حال بررسی چارت تولد و ترانزیت‌ها...";
 
+    try {
+
+        const data = await api(
+            "/advisor",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    question
+                })
+            }
+        );
+
+        if (data?.advice) {
+
+            box.textContent =
+                data.advice;
+
+        } else {
+
+            box.textContent =
+                "پاسخ مشاور دریافت نشد.";
+        }
+
+    } catch (error) {
+
+        box.textContent =
+            "خطا: " +
+            (error?.message || error);
+    }
 }
 
 // =========================================================
@@ -670,11 +710,10 @@ try {
 
 async function loadAll() {
 
-await Promise.all([
-    loadNatal(),
-    loadTransits()
-]);
-
+    await Promise.all([
+        loadNatal(),
+        loadTransits()
+    ]);
 }
 
 // =========================================================
@@ -682,11 +721,10 @@ await Promise.all([
 // =========================================================
 
 document.addEventListener(
-"DOMContentLoaded",
-() => {
+    "DOMContentLoaded",
+    () => {
 
-    loadAll();
+        loadAll();
 
-}
-
+    }
 );
