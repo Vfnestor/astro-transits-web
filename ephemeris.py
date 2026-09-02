@@ -43,9 +43,9 @@ def get_today_transits():
 
     positions = {}
     for name, code in PLANETS.items():
-        result = swe.calc(jd, code)
-        lon = result[0]   # فقط درجهٔ طول
-        positions[name] = lon  # اینجا فقط عدد ذخیره می‌شود، نه tuple
+    result = swe.calc(jd, code)
+    lon = result[0][0]
+    positions[name] = lon
 
     transits = []
     names = list(positions.keys())
