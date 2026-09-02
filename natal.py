@@ -45,20 +45,21 @@ def get_natal_chart():
     )
 
     chart = {}
+
     for name, code in PLANETS.items():
-    result = swe.calc(jd, code)
+        result = swe.calc(jd, code)
 
-    lon = result[0][0]
-    lat = result[0][1]
+        lon = result[0][0]
+        lat = result[0][1]
 
-    sign, pos_in_sign = _deg_to_sign(lon)
+        sign, pos_in_sign = _deg_to_sign(lon)
 
-    chart[name] = {
-        "longitude": lon,
-        "latitude": lat,
-        "sign": sign,
-        "degree_in_sign": pos_in_sign,
-    }
+        chart[name] = {
+            "longitude": lon,
+            "latitude": lat,
+            "sign": sign,
+            "degree_in_sign": pos_in_sign,
+        }
 
     return {
         "status": "ok",
