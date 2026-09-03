@@ -1,4 +1,9 @@
+"requirements.txt"
+
 fastapi
 uvicorn
 pydantic
 pyswisseph
+openai
+Pillow
+python-multipart
