@@ -707,23 +707,43 @@ def _extract_natal_targets(natal_chart: dict):
 # TRANSIT → NATAL — ROBUST VERSION
 # =========================================================
 
+# =========================================================
+# TRANSIT → NATAL
+# =========================================================
+
 def _calculate_natal_transits(
     transit_positions: dict,
     natal_chart: dict
 ):
 
+    results = []
+
+    if not isinstance(natal_chart, dict):
+        return results
+
+    # =====================================================
+    # جمع‌آوری نقاط تولد
+    # =====================================================
+
     natal_targets = _extract_natal_targets(
         natal_chart
     )
 
-    results = []
+    print(
+        "NATAL TARGETS:",
+        list(natal_targets.keys())
+    )
 
     if not natal_targets:
+        print(
+            "NATAL TRANSIT ERROR: "
+            "No natal targets found."
+        )
         return results
 
 
     # =====================================================
-    # بررسی هر سیاره ترانزیتی
+    # Transit → Natal
     # =====================================================
 
     for transit_name, transit_data in (
@@ -747,7 +767,6 @@ def _calculate_natal_transits(
             transit_lon = float(
                 transit_lon
             )
-
         except (
             TypeError,
             ValueError,
@@ -755,13 +774,15 @@ def _calculate_natal_transits(
             continue
 
 
-        # =================================================
-        # بررسی تمام نقاط چارت تولد
-        # =================================================
-
         for natal_name, natal_data in (
             natal_targets.items()
         ):
+
+            if not isinstance(
+                natal_data,
+                dict
+            ):
+                continue
 
             natal_lon = natal_data.get(
                 "longitude"
@@ -770,38 +791,54 @@ def _calculate_natal_transits(
             if natal_lon is None:
                 continue
 
+            try:
+                natal_lon = float(
+                    natal_lon
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                continue
+
+
+            # =================================================
+            # زاویه واقعی
+            # =================================================
+
             diff = _degree_difference(
                 transit_lon,
-                float(natal_lon),
+                natal_lon
             )
 
             aspect = _find_aspect(
                 diff
             )
 
-            if not aspect:
+            if aspect is None:
                 continue
 
 
             # =================================================
-            # IMPORTANCE
+            # اهمیت
             # =================================================
 
-            importance = aspect["weight"]
+            importance = int(
+                aspect["weight"]
+            )
 
 
-            # نقاط بسیار مهم چارت
+            # Sun / Moon / ASC / MC
             if natal_name in {
                 "Sun",
                 "Moon",
                 "ASC",
                 "MC",
             }:
-
                 importance += 2
 
 
-            # سیارات بیرونی اهمیت بیشتری دارند
+            # Outer planets
             if transit_name in {
                 "Jupiter",
                 "Saturn",
@@ -809,19 +846,17 @@ def _calculate_natal_transits(
                 "Neptune",
                 "Pluto",
             }:
-
                 importance += 1
 
 
+            # =================================================
+            # Natal information
+            # =================================================
+
             natal_fa = PLANET_FA.get(
                 natal_name,
-                natal_name,
+                natal_name
             )
-
-
-            # =================================================
-            # HOUSE
-            # =================================================
 
             house = natal_data.get(
                 "house"
@@ -837,270 +872,9 @@ def _calculate_natal_transits(
             ):
 
                 try:
-
                     house_name_fa = (
                         f"خانه {int(house)}"
                     )
-
-                except (
-                    TypeError,
-                    ValueError,
-                ):
-
-                    house_name_fa = str(
-                        house
-                    )
-
-
-            # =================================================
-            # RESULT
-            # =================================================
-
-            results.append(
-                {
-
-                    # -----------------------------
-                    # Transit planet
-                    # -----------------------------
-
-                    "transit_planet":
-                        transit_name,
-
-                    "transit_planet_fa":
-                        PLANET_FA.get(
-                            transit_name,
-                            transit_name,
-                        ),
-
-                    "transit_symbol":
-                        PLANET_SYMBOL.get(
-                            transit_name,
-                            "",
-                        ),
-
-
-                    # -----------------------------
-                    # Natal target
-                    # -----------------------------
-
-                    "natal_target":
-                        natal_name,
-
-                    "natal_target_fa":
-                        natal_fa,
-
-                    "natal_planet_fa":
-                        natal_fa,
-
-                    "natal_symbol":
-                        PLANET_SYMBOL.get(
-                            natal_name,
-                            "",
-                        ),
-
-                    "target_type":
-                        natal_data.get(
-                            "target_type",
-                            "planet",
-                        ),
-
-
-                    # -----------------------------
-                    # Aspect
-                    # -----------------------------
-
-                    "aspect":
-                        aspect["aspect"],
-
-                    "aspect_fa":
-                        aspect["aspect_fa"],
-
-                    "aspect_symbol":
-                        aspect["aspect_symbol"],
-
-                    "aspect_degree":
-                        aspect["aspect_degree"],
-
-                    "exact_diff":
-                        round(
-                            diff,
-                            4,
-                        ),
-
-                    "orb":
-                        aspect["orb"],
-
-                    "importance":
-                        importance,
-
-
-                    # -----------------------------
-                    # Transit position
-                    # -----------------------------
-
-                    "transit_position":
-                        transit_data.get(
-                            "formatted",
-                            "",
-                        ),
-
-                    "transit_sign":
-                        transit_data.get(
-                            "sign"
-                        ),
-
-                    "transit_sign_fa":
-                        transit_data.get(
-                            "sign_fa"
-                        ),
-
-
-                    # -----------------------------
-                    # Natal position
-                    # -----------------------------
-
-                    "natal_longitude":
-                        round(
-                            float(natal_lon),
-                            6,
-                        ),
-
-                    "natal_sign":
-                        natal_data.get(
-                            "sign"
-                        ),
-
-                    "natal_sign_fa":
-                        natal_data.get(
-                            "sign_fa"
-                        ),
-
-                    "natal_house":
-                        house,
-
-                    "natal_house_name_fa":
-                        house_name_fa,
-
-
-                    # -----------------------------
-                    # Transit status
-                    # -----------------------------
-
-                    "transit_retrograde":
-                        transit_data.get(
-                            "retrograde",
-                            False,
-                        ),
-                }
-            )
-
-
-    # =====================================================
-    # SORT
-    # =====================================================
-
-    results.sort(
-        key=lambda x: (
-            -x["importance"],
-            x["orb"],
-        )
-    )
-
-    return results
-        
-# =========================================================
-# TRANSIT → NATAL
-# =========================================================
-
-def _calculate_natal_transits(
-    transit_positions: dict,
-    natal_chart: dict
-):
-
-    natal_targets = (
-        _extract_natal_targets(
-            natal_chart
-        )
-    )
-
-    results = []
-
-    for transit_name, transit_data in (
-        transit_positions.items()
-    ):
-
-        transit_lon = transit_data[
-            "longitude"
-        ]
-
-        for natal_name, natal_data in (
-            natal_targets.items()
-        ):
-
-            natal_lon = natal_data[
-                "longitude"
-            ]
-
-            diff = _degree_difference(
-                transit_lon,
-                natal_lon,
-            )
-
-            aspect = _find_aspect(
-                diff
-            )
-
-            if not aspect:
-                continue
-
-            importance = aspect[
-                "weight"
-            ]
-
-            if natal_name in {
-                "Sun",
-                "Moon",
-                "ASC",
-                "MC",
-            }:
-                importance += 2
-
-            if transit_name in {
-                "Jupiter",
-                "Saturn",
-                "Uranus",
-                "Neptune",
-                "Pluto",
-            }:
-                importance += 1
-
-            natal_fa = PLANET_FA.get(
-                natal_name,
-                natal_name,
-            )
-
-            house = natal_data.get(
-                "house"
-            )
-
-            house_name_fa = natal_data.get(
-                "house_name_fa"
-            )
-
-            # اگر natal.py نام خانه را
-            # ارسال نکرده باشد، حداقل
-            # نام خانه عددی ساخته شود.
-            if not house_name_fa and house is not None:
-
-                try:
-                    house_number = int(
-                        house
-                    )
-
-                    house_name_fa = (
-                        f"خانه {house_number}"
-                    )
-
                 except (
                     TypeError,
                     ValueError,
@@ -1109,136 +883,172 @@ def _calculate_natal_transits(
                         house
                     )
 
-            results.append(
-                {
-                    # -----------------------------
-                    # Transit
-                    # -----------------------------
 
-                    "transit_planet":
+            # =================================================
+            # نتیجه
+            # =================================================
+
+            item = {
+
+                # -----------------------------
+                # Transit
+                # -----------------------------
+
+                "transit_planet":
+                    transit_name,
+
+                "transit_planet_fa":
+                    PLANET_FA.get(
                         transit_name,
+                        transit_name
+                    ),
 
-                    "transit_planet_fa":
-                        PLANET_FA[
-                            transit_name
-                        ],
+                "transit_symbol":
+                    PLANET_SYMBOL.get(
+                        transit_name,
+                        ""
+                    ),
 
-                    "transit_symbol":
-                        PLANET_SYMBOL[
-                            transit_name
-                        ],
 
-                    # -----------------------------
-                    # Natal target
-                    # -----------------------------
+                # -----------------------------
+                # Natal
+                # -----------------------------
 
-                    "natal_target":
+                "natal_target":
+                    natal_name,
+
+                "natal_target_fa":
+                    natal_fa,
+
+                "natal_planet":
+                    natal_name,
+
+                "natal_planet_fa":
+                    natal_fa,
+
+                "natal_symbol":
+                    PLANET_SYMBOL.get(
                         natal_name,
+                        ""
+                    ),
 
-                    "natal_target_fa":
-                        natal_fa,
+                "target_type":
+                    natal_data.get(
+                        "target_type",
+                        "planet"
+                    ),
 
-                    # کلیدهای مورد انتظار Frontend
-                    "natal_planet_fa":
-                        natal_fa,
 
-                    "natal_symbol":
-                        PLANET_SYMBOL.get(
-                            natal_name,
-                            "",
-                        ),
+                # -----------------------------
+                # Aspect
+                # -----------------------------
 
-                    "target_type":
-                        natal_data[
-                            "target_type"
-                        ],
+                "aspect":
+                    aspect["aspect"],
 
-                    # -----------------------------
-                    # Aspect
-                    # -----------------------------
+                "aspect_fa":
+                    aspect["aspect_fa"],
 
-                    "aspect":
-                        aspect["aspect"],
+                "aspect_symbol":
+                    aspect["aspect_symbol"],
 
-                    "aspect_fa":
-                        aspect["aspect_fa"],
+                "aspect_degree":
+                    aspect["aspect_degree"],
 
-                    "aspect_symbol":
-                        aspect["aspect_symbol"],
+                "exact_diff":
+                    round(
+                        diff,
+                        4
+                    ),
 
-                    "exact_diff":
-                        round(
-                            diff,
-                            4,
-                        ),
-
-                    "orb":
+                "orb":
+                    round(
                         aspect["orb"],
+                        4
+                    ),
 
-                    "importance":
-                        importance,
+                "importance":
+                    importance,
 
-                    # -----------------------------
-                    # Transit position
-                    # -----------------------------
 
-                    "transit_position":
-                        transit_data[
-                            "formatted"
-                        ],
+                # -----------------------------
+                # Transit position
+                # -----------------------------
 
-                    "transit_sign":
-                        transit_data[
-                            "sign"
-                        ],
+                "transit_position":
+                    transit_data.get(
+                        "formatted",
+                        ""
+                    ),
 
-                    "transit_sign_fa":
-                        transit_data[
-                            "sign_fa"
-                        ],
+                "transit_sign":
+                    transit_data.get(
+                        "sign"
+                    ),
 
-                    # -----------------------------
-                    # Natal position
-                    # -----------------------------
+                "transit_sign_fa":
+                    transit_data.get(
+                        "sign_fa"
+                    ),
 
-                    "natal_sign":
-                        natal_data.get(
-                            "sign"
-                        ),
+                "transit_retrograde":
+                    transit_data.get(
+                        "retrograde",
+                        False
+                    ),
 
-                    "natal_sign_fa":
-                        natal_data.get(
-                            "sign_fa"
-                        ),
 
-                    # کلیدهای مورد انتظار Frontend
-                    "natal_house":
-                        house,
+                # -----------------------------
+                # Natal position
+                # -----------------------------
 
-                    "natal_house_name_fa":
-                        house_name_fa,
+                "natal_longitude":
+                    round(
+                        natal_lon,
+                        6
+                    ),
 
-                    # -----------------------------
-                    # Transit status
-                    # -----------------------------
+                "natal_sign":
+                    natal_data.get(
+                        "sign"
+                    ),
 
-                    "transit_retrograde":
-                        transit_data.get(
-                            "retrograde",
-                            False,
-                        ),
-                }
+                "natal_sign_fa":
+                    natal_data.get(
+                        "sign_fa"
+                    ),
+
+                "natal_house":
+                    house,
+
+                "natal_house_name_fa":
+                    house_name_fa,
+            }
+
+
+            results.append(
+                item
             )
+
+
+    # =====================================================
+    # مرتب‌سازی
+    # =====================================================
 
     results.sort(
         key=lambda x: (
             -x["importance"],
-            x["orb"],
+            x["orb"]
         )
     )
 
-    return results
 
+    print(
+        "NATAL TRANSITS FOUND:",
+        len(results)
+    )
+
+    return results
 
 # =========================================================
 # INTERPRETATION
