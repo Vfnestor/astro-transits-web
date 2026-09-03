@@ -1,5 +1,3 @@
-"main.py"
-
 import os
 import json
 import uuid
@@ -18,7 +16,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from natal import get_natal_chart
 from ephemeris import get_full_transit_analysis
-from advisor import ask_openai_advisor
+from advisor import get_advice
 
 
 # ============================================================
@@ -27,7 +25,7 @@ from advisor import ask_openai_advisor
 
 app = FastAPI(
     title="Astro Transits",
-    version="4.0.0"
+    version="4.0.1"
 )
 
 app.add_middleware(
@@ -44,12 +42,8 @@ app.add_middleware(
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-
 STATIC_DIR = BASE_DIR / "static"
 
-# On Render, use a Persistent Disk if PROFILE_STORAGE_DIR is set.
-# Example:
-# PROFILE_STORAGE_DIR=/var/data/astro_profiles
 PROFILE_STORAGE_DIR = Path(
     os.getenv(
         "PROFILE_STORAGE_DIR",
@@ -57,13 +51,18 @@ PROFILE_STORAGE_DIR = Path(
     )
 )
 
-PROFILE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-
 PROFILE_DATA_DIR = PROFILE_STORAGE_DIR / "profiles"
 PHOTO_DIR = PROFILE_STORAGE_DIR / "photos"
 
-PROFILE_DATA_DIR.mkdir(parents=True, exist_ok=True)
-PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_DATA_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+PHOTO_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 # ============================================================
@@ -74,7 +73,7 @@ SESSION_COOKIE = "astro_session"
 
 SESSION_SECRET = os.getenv(
     "SESSION_SECRET",
-    "CHANGE_THIS_SESSION_SECRET"
+    "CHANGE_THIS_SESSION_SECRET_IN_RENDER"
 )
 
 MAX_PHOTO_SIZE = 8 * 1024 * 1024
@@ -88,8 +87,17 @@ ADVISOR_ROLE = "مشاور نجومی و آشنا به علم اعداد"
 # ============================================================
 
 class Profile(BaseModel):
-    first_name: str = Field(..., min_length=1, max_length=80)
-    family_name: str = Field(..., min_length=1, max_length=100)
+    first_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=80
+    )
+
+    family_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100
+    )
 
     advisor_name: str = Field(
         ...,
@@ -107,13 +115,29 @@ class Profile(BaseModel):
         pattern=r"^\d{2}:\d{2}$"
     )
 
-    city: str = Field(..., min_length=1, max_length=120)
+    city: str = Field(
+        ...,
+        min_length=1,
+        max_length=120
+    )
 
-    latitude: float = Field(..., ge=-90, le=90)
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90
+    )
 
-    longitude: float = Field(..., ge=-180, le=180)
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180
+    )
 
-    utc_offset: float = Field(..., ge=-14, le=14)
+    utc_offset: float = Field(
+        ...,
+        ge=-14,
+        le=14
+    )
 
 
 class AdvisorRequest(BaseModel):
@@ -129,17 +153,15 @@ class AdvisorRequest(BaseModel):
 
 
 # ============================================================
-# SESSION HELPERS
+# SESSION
 # ============================================================
 
 def _sign_value(value: str) -> str:
-    signature = hmac.new(
+    return hmac.new(
         SESSION_SECRET.encode("utf-8"),
         value.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
-
-    return signature
 
 
 def _encode_session(session: dict) -> str:
@@ -151,19 +173,22 @@ def _encode_session(session: dict) -> str:
 
     signature = _sign_value(raw)
 
-    payload = json.dumps(
-        {
-            "data": raw,
-            "signature": signature
-        },
+    payload = {
+        "data": raw,
+        "signature": signature
+    }
+
+    return json.dumps(
+        payload,
         ensure_ascii=False,
         separators=(",", ":")
     )
 
-    return payload
 
+def _decode_session(
+    value: Optional[str]
+) -> Optional[dict]:
 
-def _decode_session(value: Optional[str]) -> Optional[dict]:
     if not value:
         return None
 
@@ -199,8 +224,14 @@ def _new_session() -> dict:
     }
 
 
-def _get_session(request: Request) -> Optional[dict]:
-    cookie = request.cookies.get(SESSION_COOKIE)
+def _get_session(
+    request: Request
+) -> Optional[dict]:
+
+    cookie = request.cookies.get(
+        SESSION_COOKIE
+    )
+
     return _decode_session(cookie)
 
 
@@ -225,12 +256,23 @@ def _set_session_cookie(
 # PROFILE STORAGE
 # ============================================================
 
-def _profile_path(user_id: str) -> Path:
-    return PROFILE_DATA_DIR / f"{user_id}.json"
+def _profile_path(
+    user_id: str
+) -> Path:
+
+    return (
+        PROFILE_DATA_DIR /
+        f"{user_id}.json"
+    )
 
 
-def _load_profile(user_id: str) -> Optional[dict]:
-    path = _profile_path(user_id)
+def _load_profile(
+    user_id: str
+) -> Optional[dict]:
+
+    path = _profile_path(
+        user_id
+    )
 
     if not path.exists():
         return None
@@ -240,8 +282,8 @@ def _load_profile(user_id: str) -> Optional[dict]:
             path,
             "r",
             encoding="utf-8"
-        ) as f:
-            return json.load(f)
+        ) as file:
+            return json.load(file)
 
     except Exception:
         return None
@@ -251,17 +293,23 @@ def _save_profile(
     user_id: str,
     profile: dict
 ):
-    path = _profile_path(user_id)
-    temp_path = path.with_suffix(".tmp")
+    path = _profile_path(
+        user_id
+    )
+
+    temp_path = path.with_suffix(
+        ".tmp"
+    )
 
     with open(
         temp_path,
         "w",
         encoding="utf-8"
-    ) as f:
+    ) as file:
+
         json.dump(
             profile,
-            f,
+            file,
             ensure_ascii=False,
             indent=2
         )
@@ -269,15 +317,27 @@ def _save_profile(
     temp_path.replace(path)
 
 
-def _avatar_exists(user_id: str) -> bool:
+# ============================================================
+# PHOTO
+# ============================================================
+
+def _photo_path(
+    user_id: str
+) -> Path:
+
     return (
         PHOTO_DIR /
         f"{user_id}.jpg"
-    ).exists()
+    )
 
 
-def _avatar_url(user_id: str) -> Optional[str]:
-    path = PHOTO_DIR / f"{user_id}.jpg"
+def _avatar_url(
+    user_id: str
+) -> Optional[str]:
+
+    path = _photo_path(
+        user_id
+    )
 
     if not path.exists():
         return None
@@ -296,16 +356,22 @@ def _avatar_url(user_id: str) -> Optional[str]:
 
 
 # ============================================================
-# BASIC HELPERS
+# HELPERS
 # ============================================================
 
-def _clean_text(value: str) -> str:
+def _clean_text(
+    value: str
+) -> str:
+
     return " ".join(
         value.strip().split()
     )
 
 
-def _normalize_profile(profile: Profile) -> Profile:
+def _normalize_profile(
+    profile: Profile
+) -> Profile:
+
     return Profile(
         first_name=_clean_text(
             profile.first_name
@@ -332,13 +398,17 @@ def _profile_response(
     session: dict,
     warning: Optional[str] = None
 ):
+
     result = {
         "status": "ok",
         "user_id": session["user_id"],
         "profile": profile,
         "advisor_name": session.get(
             "advisor_name",
-            profile.get("advisor_name", "")
+            profile.get(
+                "advisor_name",
+                ""
+            )
         ),
         "name_changes": session.get(
             "name_changes",
@@ -366,7 +436,11 @@ def _profile_response(
 
 @app.get("/")
 async def home():
-    index_path = STATIC_DIR / "index.html"
+
+    index_path = (
+        STATIC_DIR /
+        "index.html"
+    )
 
     if not index_path.exists():
         raise HTTPException(
@@ -381,14 +455,20 @@ async def home():
 
 
 # ============================================================
-# PROFILE
+# PROFILE GET
 # ============================================================
 
 @app.get("/profile/me")
-async def profile_me(request: Request):
-    session = _get_session(request)
+async def profile_me(
+    request: Request
+):
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         return {
             "status": "empty",
             "profile": None,
@@ -397,9 +477,12 @@ async def profile_me(request: Request):
             "advisor_role": ADVISOR_ROLE
         }
 
-    user_id = session.get("user_id")
+    user_id = session.get(
+        "user_id"
+    )
 
     if not user_id:
+
         return {
             "status": "empty",
             "profile": None,
@@ -408,14 +491,19 @@ async def profile_me(request: Request):
             "advisor_role": ADVISOR_ROLE
         }
 
-    profile = _load_profile(user_id)
+    profile = _load_profile(
+        user_id
+    )
 
     if not profile:
+
         return {
             "status": "empty",
             "profile": None,
             "user_id": user_id,
-            "avatar_url": _avatar_url(user_id),
+            "avatar_url": _avatar_url(
+                user_id
+            ),
             "advisor_role": ADVISOR_ROLE
         }
 
@@ -425,14 +513,23 @@ async def profile_me(request: Request):
     )
 
 
+# ============================================================
+# PROFILE SAVE
+# ============================================================
+
 @app.post("/profile")
 async def save_profile(
     profile: Profile,
     request: Request
 ):
-    profile = _normalize_profile(profile)
 
-    session = _get_session(request)
+    profile = _normalize_profile(
+        profile
+    )
+
+    session = _get_session(
+        request
+    )
 
     if not session:
         session = _new_session()
@@ -444,30 +541,36 @@ async def save_profile(
     )
 
     old_advisor_name = (
-        session.get("advisor_name")
-        or (
-            old_profile or {}
-        ).get("advisor_name", "")
+        session.get(
+            "advisor_name"
+        )
+        or
+        (old_profile or {}).get(
+            "advisor_name",
+            ""
+        )
     )
 
-    requested_name = profile.advisor_name
+    requested_name = (
+        profile.advisor_name
+    )
 
-    name_change_rejected = False
     warning = None
+    name_change_rejected = False
 
     # --------------------------------------------------------
-    # Advisor name change policy
+    # Advisor name changes
     # --------------------------------------------------------
 
     if old_advisor_name:
-        if (
-            requested_name !=
-            old_advisor_name
-        ):
+
+        if requested_name != old_advisor_name:
+
             if session.get(
                 "name_locked",
                 False
             ):
+
                 requested_name = (
                     old_advisor_name
                 )
@@ -475,12 +578,12 @@ async def save_profile(
                 name_change_rejected = True
 
                 warning = (
-                    "نام مشاور قبلاً سه بار "
-                    "تغییر کرده و اکنون برای همیشه "
-                    "قفل شده است."
+                    "نام مشاور پس از سه تغییر "
+                    "برای همیشه قفل شده است."
                 )
 
             else:
+
                 current_changes = int(
                     session.get(
                         "name_changes",
@@ -489,7 +592,10 @@ async def save_profile(
                 )
 
                 if current_changes >= 3:
-                    session["name_locked"] = True
+
+                    session[
+                        "name_locked"
+                    ] = True
 
                     requested_name = (
                         old_advisor_name
@@ -503,31 +609,49 @@ async def save_profile(
                     )
 
                 else:
+
                     current_changes += 1
 
-                    session["name_changes"] = (
-                        current_changes
-                    )
+                    session[
+                        "name_changes"
+                    ] = current_changes
 
                     if current_changes >= 3:
-                        session["name_locked"] = True
+                        session[
+                            "name_locked"
+                        ] = True
 
-    session["advisor_name"] = (
-        requested_name
-    )
+    session[
+        "advisor_name"
+    ] = requested_name
 
-    # Build final profile.
     profile_dict = profile.model_dump()
 
-    profile_dict["advisor_name"] = (
-        requested_name
-    )
+    profile_dict[
+        "advisor_name"
+    ] = requested_name
 
-    profile_dict["updated_at"] = (
-        datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
+    profile_dict[
+        "updated_at"
+    ] = datetime.now(
+        timezone.utc
+    ).isoformat()
+
+    # Validate chart before saving.
+    try:
+        get_natal_chart(
+            profile_dict
+        )
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "اطلاعات تولد معتبر نیست: "
+                f"{str(exc)}"
+            )
+        )
 
     _save_profile(
         user_id,
@@ -560,7 +684,7 @@ async def save_profile(
 
 
 # ============================================================
-# PROFILE PHOTO UPLOAD
+# PHOTO UPLOAD
 # ============================================================
 
 @app.post("/profile/photo")
@@ -568,17 +692,24 @@ async def upload_profile_photo(
     request: Request,
     file: UploadFile = File(...)
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=401,
             detail="ابتدا پروفایل خود را ذخیره کنید."
         )
 
-    user_id = session.get("user_id")
+    user_id = session.get(
+        "user_id"
+    )
 
     if not user_id:
+
         raise HTTPException(
             status_code=401,
             detail="شناسه کاربر معتبر نیست."
@@ -589,6 +720,7 @@ async def upload_profile_photo(
     )
 
     if not profile:
+
         raise HTTPException(
             status_code=400,
             detail="ابتدا اطلاعات پروفایل را ذخیره کنید."
@@ -601,6 +733,7 @@ async def upload_profile_photo(
     if not content_type.startswith(
         "image/"
     ):
+
         raise HTTPException(
             status_code=400,
             detail="فایل انتخاب‌شده تصویر نیست."
@@ -609,7 +742,10 @@ async def upload_profile_photo(
     raw = bytearray()
 
     while True:
-        chunk = await file.read(1024 * 1024)
+
+        chunk = await file.read(
+            1024 * 1024
+        )
 
         if not chunk:
             break
@@ -617,6 +753,7 @@ async def upload_profile_photo(
         raw.extend(chunk)
 
         if len(raw) > MAX_PHOTO_SIZE:
+
             raise HTTPException(
                 status_code=413,
                 detail=(
@@ -626,12 +763,16 @@ async def upload_profile_photo(
             )
 
     if not raw:
+
         raise HTTPException(
             status_code=400,
             detail="فایل تصویر خالی است."
         )
 
     try:
+
+        Image.MAX_IMAGE_PIXELS = 20_000_000
+
         image = Image.open(
             BytesIO(raw)
         )
@@ -646,10 +787,13 @@ async def upload_profile_photo(
             image
         )
 
+        image.load()
+
         if image.mode in (
             "RGBA",
             "LA"
         ):
+
             background = Image.new(
                 "RGB",
                 image.size,
@@ -668,6 +812,7 @@ async def upload_profile_photo(
             image = background
 
         else:
+
             image = image.convert(
                 "RGB"
             )
@@ -690,26 +835,42 @@ async def upload_profile_photo(
         OSError,
         Image.DecompressionBombError
     ):
+
         raise HTTPException(
             status_code=400,
-            detail="تصویر معتبر نیست یا قابل پردازش نیست."
+            detail=(
+                "تصویر معتبر نیست یا "
+                "قابل پردازش نیست."
+            )
         )
 
-    output_path = (
-        PHOTO_DIR /
-        f"{user_id}.jpg"
+    output_path = _photo_path(
+        user_id
+    )
+
+    temp_path = output_path.with_suffix(
+        ".tmp.jpg"
     )
 
     try:
+
         image.save(
-            output_path,
+            temp_path,
             format="JPEG",
             quality=86,
             optimize=True,
             progressive=True
         )
 
+        temp_path.replace(
+            output_path
+        )
+
     except Exception as exc:
+
+        if temp_path.exists():
+            temp_path.unlink()
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -720,7 +881,10 @@ async def upload_profile_photo(
 
     return {
         "status": "ok",
-        "message": "عکس پروفایل با موفقیت بهینه شد.",
+        "message": (
+            "عکس پروفایل با موفقیت "
+            "بهینه و ذخیره شد."
+        ),
         "avatar_url": _avatar_url(
             user_id
         )
@@ -728,7 +892,7 @@ async def upload_profile_photo(
 
 
 # ============================================================
-# PROFILE PHOTO SERVE
+# PHOTO GET
 # ============================================================
 
 @app.get(
@@ -738,30 +902,33 @@ async def get_profile_photo(
     user_id: str,
     request: Request
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=401,
             detail="Unauthorized"
         )
 
-    current_user_id = session.get(
+    if session.get(
         "user_id"
-    )
+    ) != user_id:
 
-    if current_user_id != user_id:
         raise HTTPException(
             status_code=403,
             detail="Access denied"
         )
 
-    photo_path = (
-        PHOTO_DIR /
-        f"{user_id}.jpg"
+    photo_path = _photo_path(
+        user_id
     )
 
     if not photo_path.exists():
+
         raise HTTPException(
             status_code=404,
             detail="Profile photo not found"
@@ -778,16 +945,20 @@ async def get_profile_photo(
 
 
 # ============================================================
-# DELETE PROFILE PHOTO
+# PHOTO DELETE
 # ============================================================
 
 @app.delete("/profile/photo")
 async def delete_profile_photo(
     request: Request
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=401,
             detail="Unauthorized"
@@ -798,20 +969,23 @@ async def delete_profile_photo(
     )
 
     if not user_id:
+
         raise HTTPException(
             status_code=401,
             detail="Unauthorized"
         )
 
-    photo_path = (
-        PHOTO_DIR /
-        f"{user_id}.jpg"
+    photo_path = _photo_path(
+        user_id
     )
 
     if photo_path.exists():
+
         try:
             photo_path.unlink()
+
         except Exception as exc:
+
             raise HTTPException(
                 status_code=500,
                 detail=(
@@ -827,16 +1001,20 @@ async def delete_profile_photo(
 
 
 # ============================================================
-# NATAL CHART
+# NATAL
 # ============================================================
 
 @app.get("/natal")
 async def natal_get(
     request: Request
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=400,
             detail="پروفایل ثبت نشده است."
@@ -847,22 +1025,22 @@ async def natal_get(
     )
 
     if not profile:
+
         raise HTTPException(
             status_code=400,
             detail="ابتدا پروفایل را ذخیره کنید."
         )
 
-    chart = get_natal_chart(
+    return get_natal_chart(
         profile
     )
-
-    return chart
 
 
 @app.post("/natal")
 async def natal_post(
     profile: Profile
 ):
+
     profile = _normalize_profile(
         profile
     )
@@ -873,16 +1051,20 @@ async def natal_post(
 
 
 # ============================================================
-# TRANSITS / ANALYSIS
+# ANALYSIS
 # ============================================================
 
 @app.get("/analysis")
 async def analysis_get(
     request: Request
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=400,
             detail="پروفایل ثبت نشده است."
@@ -893,6 +1075,7 @@ async def analysis_get(
     )
 
     if not profile:
+
         raise HTTPException(
             status_code=400,
             detail="ابتدا پروفایل را ذخیره کنید."
@@ -911,6 +1094,7 @@ async def analysis_get(
 async def analysis_post(
     profile: Profile
 ):
+
     profile = _normalize_profile(
         profile
     )
@@ -926,8 +1110,13 @@ async def analysis_post(
     )
 
 
+# ============================================================
+# TRANSITS
+# ============================================================
+
 @app.get("/transits")
 async def transits_get():
+
     return get_full_transit_analysis()
 
 
@@ -940,9 +1129,13 @@ async def advisor(
     request_data: AdvisorRequest,
     request: Request
 ):
-    session = _get_session(request)
+
+    session = _get_session(
+        request
+    )
 
     if not session:
+
         raise HTTPException(
             status_code=400,
             detail="ابتدا پروفایل خود را ثبت کنید."
@@ -953,6 +1146,7 @@ async def advisor(
     )
 
     if not user_id:
+
         raise HTTPException(
             status_code=400,
             detail="شناسه کاربر معتبر نیست."
@@ -963,37 +1157,22 @@ async def advisor(
     )
 
     if not profile:
+
         raise HTTPException(
             status_code=400,
             detail="ابتدا پروفایل خود را ذخیره کنید."
         )
 
-    natal_chart = get_natal_chart(
-        profile
-    )
-
-    transit_data = get_full_transit_analysis(
-        natal_chart
-    )
-
-    advisor_name = session.get(
-        "advisor_name"
-    ) or profile.get(
-        "advisor_name",
-        ""
-    )
-
     try:
-        result = ask_openai_advisor(
+
+        result = get_advice(
             question=request_data.question,
-            profile=profile,
-            natal_chart=natal_chart,
-            transit_data=transit_data,
             history=request_data.history,
-            advisor_name=advisor_name
+            profile=profile
         )
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -1002,22 +1181,7 @@ async def advisor(
             )
         )
 
-    return {
-        "status": "ok",
-        "answer": result.get(
-            "answer",
-            ""
-        ),
-        "advisor_name": advisor_name,
-        "advisor_role": ADVISOR_ROLE,
-        "model": result.get(
-            "model"
-        ),
-        "numerology": natal_chart.get(
-            "numerology",
-            {}
-        )
-    }
+    return result
 
 
 # ============================================================
@@ -1026,15 +1190,16 @@ async def advisor(
 
 @app.get("/health")
 async def health():
-    openai_configured = bool(
-        os.getenv("OPENAI_API_KEY")
-    )
 
     return {
         "status": "ok",
         "service": "astro-transits",
-        "version": "4.0.0",
-        "openai_configured": openai_configured,
+        "version": "4.0.1",
+        "openai_configured": bool(
+            os.getenv(
+                "OPENAI_API_KEY"
+            )
+        ),
         "profile_storage": str(
             PROFILE_STORAGE_DIR
         ),
@@ -1050,6 +1215,7 @@ async def health():
 
 @app.get("/debug")
 async def debug():
+
     return {
         "status": "ok",
         "python": os.sys.version,
@@ -1066,7 +1232,9 @@ async def debug():
             PHOTO_DIR
         ),
         "openai_configured": bool(
-            os.getenv("OPENAI_API_KEY")
+            os.getenv(
+                "OPENAI_API_KEY"
+            )
         ),
         "openai_model": os.getenv(
             "OPENAI_MODEL",
