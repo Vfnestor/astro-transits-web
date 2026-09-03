@@ -1,17 +1,17 @@
 @import url(
     'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap'
 );
-/* Deploy sync 2026-09-02 */
+
+/* Deploy sync 2026-09-03 */
+/* Astro Vahid — Glass Neumorphism UI */
 
 * {
     box-sizing: border-box;
 }
 
-
 html {
     scroll-behavior: smooth;
 }
-
 
 body {
     margin: 0;
@@ -34,6 +34,10 @@ body {
 }
 
 
+/* =========================================================
+   TOP BAR
+   ========================================================= */
+
 .topbar {
     position: sticky;
 
@@ -47,21 +51,24 @@ body {
 
     justify-content: space-between;
 
-    padding: 14px 5%;
+    padding: 12px 5%;
 
     background:
-        rgba(10, 15, 27, 0.88);
+        rgba(10, 15, 27, 0.72);
 
     backdrop-filter:
-        blur(16px);
+        blur(18px);
+
+    -webkit-backdrop-filter:
+        blur(18px);
 
     border-bottom:
-        1px solid rgba(
-            255,
-            255,
-            255,
-            0.07
-        );
+        1px solid
+        rgba(255, 255, 255, 0.06);
+
+    box-shadow:
+        0 8px 30px
+        rgba(0, 0, 0, 0.18);
 }
 
 
@@ -86,7 +93,7 @@ body {
 nav {
     display: flex;
 
-    gap: 8px;
+    gap: 6px;
 }
 
 
@@ -95,66 +102,118 @@ nav a {
 
     text-decoration: none;
 
-    padding: 8px 13px;
+    padding: 7px 12px;
 
     border-radius: 9px;
 
-    font-size: 14px;
+    font-size: 13px;
 
-    transition: 0.2s;
+    transition:
+        0.2s ease;
 }
 
 
 nav a:hover {
-    background: #fbbf24;
+    background:
+        rgba(251, 191, 36, 0.88);
 
     color: #111827;
+
+    box-shadow:
+        0 5px 18px
+        rgba(251, 191, 36, 0.16);
 }
 
 
+/* =========================================================
+   CONTAINER
+   ========================================================= */
+
 .container {
     width: min(
-        1150px,
+        1120px,
         92%
     );
 
     margin: auto;
 
     padding:
-        35px 0 60px;
+        30px 0 55px;
 }
 
 
+/* =========================================================
+   GLASS / NEUMORPHIC CARD
+   ========================================================= */
+
 .card {
+    position: relative;
+
+    overflow: hidden;
+
     background:
         linear-gradient(
             145deg,
-            rgba(22, 31, 51, 0.96),
-            rgba(12, 18, 31, 0.96)
+            rgba(25, 35, 57, 0.58),
+            rgba(9, 15, 27, 0.58)
         );
 
     border:
-        1px solid rgba(
-            255,
-            255,
-            255,
-            0.07
-        );
+        1px solid
+        rgba(255, 255, 255, 0.065);
 
-    border-radius: 20px;
+    border-radius: 18px;
 
-    padding: 28px;
+    padding: 24px;
 
-    margin-bottom: 24px;
+    margin-bottom: 20px;
+
+    backdrop-filter:
+        blur(18px);
+
+    -webkit-backdrop-filter:
+        blur(18px);
 
     box-shadow:
-        0 20px 60px
-        rgba(0, 0, 0, 0.25);
+        inset 2px 2px 5px
+        rgba(255, 255, 255, 0.025),
+
+        inset -3px -3px 7px
+        rgba(0, 0, 0, 0.30),
+
+        0 18px 45px
+        rgba(0, 0, 0, 0.20);
 }
 
 
+.card::before {
+    content: "";
+
+    position: absolute;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255,255,255,0.045),
+            transparent 32%,
+            transparent 70%,
+            rgba(255,255,255,0.015)
+        );
+
+    opacity: 0.7;
+}
+
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
 .hero {
-    min-height: 420px;
+    min-height: 400px;
 
     display: flex;
 
@@ -204,6 +263,10 @@ nav a:hover {
 }
 
 
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
 button {
     font-family: inherit;
 
@@ -214,7 +277,7 @@ button {
     border-radius: 11px;
 
     padding:
-        11px 18px;
+        10px 17px;
 
     font-weight: 700;
 
@@ -231,22 +294,43 @@ button:hover {
 
 
 .primary {
-    background: #fbbf24;
+    background:
+        linear-gradient(
+            145deg,
+            #ffd15a,
+            #fbbf24
+        );
 
     color: #111827;
 
     box-shadow:
         0 8px 25px
-        rgba(251, 191, 36, 0.2);
+        rgba(251, 191, 36, 0.18);
 }
 
 
 .secondary {
-    background: #202b43;
+    background:
+        rgba(255,255,255,0.045);
 
     color: #fbbf24;
+
+    border:
+        1px solid
+        rgba(255,255,255,0.055);
+
+    box-shadow:
+        inset 2px 2px 5px
+        rgba(255,255,255,0.025),
+
+        inset -2px -2px 5px
+        rgba(0,0,0,0.25);
 }
 
+
+/* =========================================================
+   ORBIT
+   ========================================================= */
 
 .hero-orbit {
     width: 330px;
@@ -266,12 +350,7 @@ button:hover {
 
     border:
         1px solid
-        rgba(
-            251,
-            191,
-            36,
-            0.25
-        );
+        rgba(251, 191, 36, 0.25);
 
     border-radius: 50%;
 
@@ -334,6 +413,10 @@ button:hover {
 }
 
 
+/* =========================================================
+   TITLES
+   ========================================================= */
+
 .section-title {
     display: flex;
 
@@ -343,7 +426,7 @@ button:hover {
 
     gap: 20px;
 
-    margin-bottom: 24px;
+    margin-bottom: 18px;
 }
 
 
@@ -351,16 +434,20 @@ h2 {
     margin:
         5px 0 0;
 
-    font-size: 28px;
+    font-size: 26px;
 }
 
 
 h3 {
-    margin-top: 35px;
+    margin-top: 28px;
 
     color: #fbbf24;
 }
 
+
+/* =========================================================
+   INFO ITEMS
+   ========================================================= */
 
 .info-grid {
     display: grid;
@@ -371,22 +458,34 @@ h3 {
             minmax(150px, 1fr)
         );
 
-    gap: 12px;
+    gap: 10px;
 }
 
 
 .info-item {
     background:
-        rgba(
-            255,
-            255,
-            255,
-            0.035
-        );
+        rgba(255,255,255,0.028);
 
-    border-radius: 13px;
+    border:
+        1px solid
+        rgba(255,255,255,0.045);
 
-    padding: 16px;
+    border-radius: 12px;
+
+    padding: 13px;
+
+    box-shadow:
+        inset 2px 2px 5px
+        rgba(255,255,255,0.018),
+
+        inset -2px -2px 5px
+        rgba(0,0,0,0.22);
+
+    backdrop-filter:
+        blur(10px);
+
+    -webkit-backdrop-filter:
+        blur(10px);
 }
 
 
@@ -395,11 +494,15 @@ h3 {
 
     color: #8f9bb0;
 
-    font-size: 12px;
+    font-size: 11px;
 
-    margin-bottom: 7px;
+    margin-bottom: 5px;
 }
 
+
+/* =========================================================
+   HIGHLIGHTS
+   ========================================================= */
 
 .highlight-grid {
     display: grid;
@@ -410,40 +513,32 @@ h3 {
             1fr
         );
 
-    gap: 14px;
+    gap: 11px;
 }
 
 
 .highlight {
-    padding: 22px;
+    padding: 17px;
 
-    border-radius: 15px;
+    border-radius: 13px;
 
     background:
         linear-gradient(
             145deg,
-            rgba(
-                251,
-                191,
-                36,
-                0.1
-            ),
-            rgba(
-                255,
-                255,
-                255,
-                0.025
-            )
+            rgba(251,191,36,0.075),
+            rgba(255,255,255,0.018)
         );
 
     border:
         1px solid
-        rgba(
-            251,
-            191,
-            36,
-            0.12
-        );
+        rgba(251,191,36,0.10);
+
+    box-shadow:
+        inset 2px 2px 5px
+        rgba(255,255,255,0.018),
+
+        inset -2px -2px 6px
+        rgba(0,0,0,0.22);
 }
 
 
@@ -452,63 +547,194 @@ h3 {
 
     color: #9ca3af;
 
-    font-size: 13px;
+    font-size: 12px;
 
-    margin-bottom: 10px;
+    margin-bottom: 7px;
 }
 
 
 .highlight strong {
-    font-size: 20px;
+    font-size: 18px;
 
     color: #fff;
 }
 
 
+/* =========================================================
+   TABLE AREA
+   ========================================================= */
+
 .table-wrapper {
+    width: 100%;
+
     overflow-x: auto;
+
+    overflow-y: hidden;
+
+    border-radius: 13px;
+
+    padding: 5px;
+
+    background:
+        rgba(5, 9, 18, 0.25);
+
+    border:
+        1px solid
+        rgba(255,255,255,0.035);
+
+    box-shadow:
+        inset 3px 3px 8px
+        rgba(0,0,0,0.28),
+
+        inset -2px -2px 5px
+        rgba(255,255,255,0.018);
+
+    backdrop-filter:
+        blur(14px);
+
+    -webkit-backdrop-filter:
+        blur(14px);
+
+    scrollbar-width: thin;
 }
 
+
+/* scrollbar */
+
+.table-wrapper::-webkit-scrollbar {
+    height: 5px;
+}
+
+
+.table-wrapper::-webkit-scrollbar-track {
+    background:
+        rgba(255,255,255,0.025);
+
+    border-radius: 10px;
+}
+
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background:
+        rgba(251,191,36,0.32);
+
+    border-radius: 10px;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
 
 table {
     width: 100%;
 
-    border-collapse: collapse;
+    border-collapse: separate;
 
-    min-width: 600px;
+    border-spacing: 0;
+
+    min-width: 540px;
+
+    table-layout: auto;
 }
 
 
+/* cells */
+
 th,
 td {
-    padding: 13px;
+    padding:
+        8px 9px;
 
     text-align: right;
 
     border-bottom:
         1px solid
-        rgba(
-            255,
-            255,
-            255,
-            0.06
-        );
+        rgba(255,255,255,0.035);
+
+    white-space: nowrap;
 }
 
 
-th {
+/* header */
+
+thead th {
     color: #fbbf24;
 
-    font-size: 13px;
+    font-size: 11px;
+
+    font-weight: 700;
+
+    background:
+        rgba(251,191,36,0.045);
+
+    padding:
+        8px 9px;
+
+    position: sticky;
+
+    top: 0;
+
+    z-index: 2;
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
 }
 
+
+/* first header corner */
+
+thead th:first-child {
+    border-radius:
+        9px 0 0 9px;
+}
+
+
+/* body */
 
 td {
     color: #d8dde7;
 
-    font-size: 14px;
+    font-size: 12px;
+
+    line-height: 1.5;
 }
 
+
+/* row */
+
+tbody tr {
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease;
+}
+
+
+tbody tr:hover {
+    background:
+        rgba(251,191,36,0.035);
+}
+
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* subtle inner glass */
+
+tbody td {
+    background:
+        rgba(255,255,255,0.008);
+}
+
+
+/* =========================================================
+   PLANETS
+   ========================================================= */
 
 .planet-grid {
     display: grid;
@@ -516,98 +742,128 @@ td {
     grid-template-columns:
         repeat(
             auto-fit,
-            minmax(150px, 1fr)
+            minmax(145px, 1fr)
         );
 
-    gap: 12px;
+    gap: 10px;
 }
 
 
 .planet-card {
     background:
-        rgba(
-            255,
-            255,
-            255,
-            0.035
-        );
+        rgba(255,255,255,0.028);
 
-    border-radius: 14px;
+    border-radius: 13px;
 
-    padding: 17px;
+    padding: 14px;
 
     border:
         1px solid
-        rgba(
-            255,
-            255,
-            255,
-            0.06
-        );
+        rgba(255,255,255,0.045);
+
+    box-shadow:
+        inset 2px 2px 5px
+        rgba(255,255,255,0.018),
+
+        inset -2px -2px 6px
+        rgba(0,0,0,0.24);
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    transition:
+        transform 0.2s ease,
+        background 0.2s ease;
+}
+
+
+.planet-card:hover {
+    transform:
+        translateY(-2px);
+
+    background:
+        rgba(255,255,255,0.042);
 }
 
 
 .planet-symbol {
-    font-size: 25px;
+    font-size: 23px;
 
     color: #fbbf24;
 }
 
 
 .planet-name {
-    margin-top: 7px;
+    margin-top: 5px;
 
     font-weight: 700;
+
+    font-size: 14px;
 }
 
 
 .planet-position {
-    margin-top: 5px;
+    margin-top: 4px;
 
     color: #aeb7c7;
 
-    font-size: 13px;
+    font-size: 12px;
 }
 
 
 .retrograde {
     color: #fb7185;
 
-    font-size: 11px;
+    font-size: 10px;
 }
 
+
+/* =========================================================
+   TEXTAREA
+   ========================================================= */
 
 textarea {
     width: 100%;
 
-    min-height: 120px;
+    min-height: 110px;
 
     resize: vertical;
 
     background:
-        #080d18;
+        rgba(5,9,18,0.48);
 
     border:
         1px solid
-        rgba(
-            255,
-            255,
-            255,
-            0.08
-        );
+        rgba(255,255,255,0.06);
 
     color: white;
 
     border-radius: 13px;
 
-    padding: 15px;
+    padding: 13px;
 
     font-family: inherit;
 
-    font-size: 15px;
+    font-size: 14px;
 
     margin:
-        10px 0 15px;
+        8px 0 13px;
+
+    box-shadow:
+        inset 4px 4px 9px
+        rgba(0,0,0,0.32),
+
+        inset -2px -2px 6px
+        rgba(255,255,255,0.018);
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
 }
 
 
@@ -615,34 +871,66 @@ textarea:focus {
     outline: none;
 
     border-color:
-        #fbbf24;
+        rgba(251,191,36,0.55);
+
+    box-shadow:
+        inset 4px 4px 9px
+        rgba(0,0,0,0.32),
+
+        0 0 0 2px
+        rgba(251,191,36,0.08);
 }
 
 
+/* =========================================================
+   ADVISOR RESULT
+   ========================================================= */
+
 .advisor-result {
-    margin-top: 22px;
+    margin-top: 18px;
 
     background:
-        #080d18;
+        rgba(5,9,18,0.42);
 
-    border-radius: 14px;
+    border-radius: 13px;
 
-    padding: 20px;
+    padding: 16px;
 
-    line-height: 2;
+    line-height: 1.9;
 
     color: #dce2ed;
 
     white-space: pre-wrap;
 
-    min-height: 80px;
+    min-height: 75px;
+
+    border:
+        1px solid
+        rgba(255,255,255,0.045);
+
+    box-shadow:
+        inset 4px 4px 9px
+        rgba(0,0,0,0.28),
+
+        inset -2px -2px 6px
+        rgba(255,255,255,0.018);
+
+    backdrop-filter:
+        blur(14px);
+
+    -webkit-backdrop-filter:
+        blur(14px);
 }
 
+
+/* =========================================================
+   STATUS
+   ========================================================= */
 
 .loading {
     color: #8f9bb0;
 
-    padding: 20px;
+    padding: 15px;
 
     text-align: center;
 }
@@ -651,19 +939,22 @@ textarea:focus {
 .error {
     color: #fb7185;
 
-    padding: 20px;
+    padding: 14px;
 
     background:
-        rgba(
-            239,
-            68,
-            68,
-            0.08
-        );
+        rgba(239,68,68,0.07);
 
-    border-radius: 12px;
+    border-radius: 11px;
+
+    border:
+        1px solid
+        rgba(239,68,68,0.10);
 }
 
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
 
 footer {
     text-align: center;
@@ -671,11 +962,15 @@ footer {
     color: #697386;
 
     padding:
-        25px;
+        22px;
 
-    font-size: 12px;
+    font-size: 11px;
 }
 
+
+/* =========================================================
+   TABLE — SMALL SCREEN
+   ========================================================= */
 
 @media (
     max-width: 800px
@@ -684,8 +979,9 @@ footer {
     .topbar {
         flex-direction: column;
 
-        gap: 10px;
+        gap: 8px;
     }
+
 
     nav {
         overflow-x: auto;
@@ -695,6 +991,7 @@ footer {
         justify-content: center;
     }
 
+
     .hero {
         min-height: auto;
 
@@ -702,8 +999,9 @@ footer {
 
         text-align: center;
 
-        gap: 25px;
+        gap: 22px;
     }
+
 
     .hero-orbit {
         width: 230px;
@@ -711,13 +1009,48 @@ footer {
         height: 230px;
     }
 
+
     .highlight-grid {
         grid-template-columns:
             repeat(2, 1fr);
     }
 
+
+    .table-wrapper {
+        margin-top: 4px;
+
+        padding: 4px;
+
+        border-radius: 11px;
+    }
+
+
+    table {
+        min-width: 500px;
+    }
+
+
+    th,
+    td {
+        padding:
+            7px 8px;
+    }
+
+
+    td {
+        font-size: 11px;
+    }
+
+
+    th {
+        font-size: 10px;
+    }
 }
 
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
 
 @media (
     max-width: 500px
@@ -727,19 +1060,23 @@ footer {
         width: 94%;
     }
 
-    .card {
-        padding: 18px;
 
-        border-radius: 16px;
+    .card {
+        padding: 16px;
+
+        border-radius: 15px;
     }
+
 
     .hero h1 {
         font-size: 34px;
     }
 
+
     .highlight-grid {
         grid-template-columns: 1fr;
     }
+
 
     .section-title {
         align-items: flex-start;
@@ -747,4 +1084,34 @@ footer {
         flex-direction: column;
     }
 
+
+    .table-wrapper {
+        margin-left: -2px;
+
+        margin-right: -2px;
+
+        width: calc(100% + 4px);
+    }
+
+
+    table {
+        min-width: 470px;
+    }
+
+
+    th,
+    td {
+        padding:
+            6px 7px;
+    }
+
+
+    td {
+        font-size: 10.5px;
+    }
+
+
+    th {
+        font-size: 9.5px;
+    }
 }
