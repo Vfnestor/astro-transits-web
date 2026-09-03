@@ -12,16 +12,13 @@ import advisor
 
 print("🔥 ASTRO TRANSITS — NEW MAIN.PY 🔥")
 
+
 app = FastAPI(
     title="Astro Vahid",
     description="Personal Astrology Dashboard",
-    version="1.0.0",
+    version="1.1.0",
 )
 
-
-# ---------------------------------------------------------
-# Static files
-# ---------------------------------------------------------
 
 app.mount(
     "/static",
@@ -30,151 +27,269 @@ app.mount(
 )
 
 
-# ---------------------------------------------------------
-# Health
-# ---------------------------------------------------------
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/health")
 def health():
+
     return {
-        "status": "ok",
-        "service": "astro-transits"
+        "status":
+            "ok",
+
+        "service":
+            "astro-transits",
     }
 
 
-# ---------------------------------------------------------
-# Debug
-# ---------------------------------------------------------
+# =========================================================
+# DEBUG
+# =========================================================
 
 @app.get("/debug")
 def debug():
-    commit_file = Path("deployed_commit.txt")
+
+    commit_file = Path(
+        "deployed_commit.txt"
+    )
 
     return {
-        "debug": "ASTRO_VERSION_2_0_0",
-        "commit": (
-            commit_file.read_text(encoding="utf-8").strip()
-            if commit_file.exists()
-            else "unknown"
-        ),
-        "cwd": str(Path.cwd()),
-        "main_file": str(Path(__file__).resolve()),
-        "natal_exists": Path("natal.py").exists(),
-        "ephemeris_exists": Path("ephemeris.py").exists(),
-        "advisor_exists": Path("advisor.py").exists(),
-        "ephe_exists": Path("ephe").exists(),
+
+        "debug":
+            "ASTRO_VERSION_3_0_0",
+
+        "commit":
+            (
+                commit_file.read_text(
+                    encoding="utf-8"
+                ).strip()
+
+                if commit_file.exists()
+
+                else "unknown"
+            ),
+
+        "cwd":
+            str(
+                Path.cwd()
+            ),
+
+        "main_file":
+            str(
+                Path(__file__).resolve()
+            ),
+
+        "natal_exists":
+            Path(
+                "natal.py"
+            ).exists(),
+
+        "ephemeris_exists":
+            Path(
+                "ephemeris.py"
+            ).exists(),
+
+        "advisor_exists":
+            Path(
+                "advisor.py"
+            ).exists(),
+
+        "ephe_exists":
+            Path(
+                "ephe"
+            ).exists(),
     }
 
 
-# ---------------------------------------------------------
-# Main page
-# ---------------------------------------------------------
+# =========================================================
+# HOME
+# =========================================================
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(
+    "/",
+    response_class=HTMLResponse
+)
 def root():
 
-    index_file = Path("index.html")
+    index_file = Path(
+        "index.html"
+    )
 
     if not index_file.exists():
+
         return HTMLResponse(
             "<h1>index.html پیدا نشد.</h1>",
             status_code=500
         )
 
     return HTMLResponse(
-        index_file.read_text(encoding="utf-8")
+        index_file.read_text(
+            encoding="utf-8"
+        )
     )
 
 
-# ---------------------------------------------------------
-# Natal chart
-# ---------------------------------------------------------
+# =========================================================
+# NATAL
+# =========================================================
 
 @app.get("/natal")
 def get_natal():
 
     try:
-        return natal.get_natal_chart()
+
+        return (
+            natal.get_natal_chart()
+        )
 
     except Exception as e:
 
         return {
-            "error": str(e),
-            "trace": traceback.format_exc()
+            "error":
+                str(e),
+
+            "trace":
+                traceback.format_exc(),
         }
 
 
-# ---------------------------------------------------------
-# Current transits
-# ---------------------------------------------------------
+# =========================================================
+# TRANSITS
+# =========================================================
 
 @app.get("/transits")
 def get_transits():
 
     try:
-        return ephemeris.get_today_transits()
+
+        return (
+            ephemeris.get_today_transits()
+        )
 
     except Exception as e:
 
         return {
-            "error": str(e),
-            "trace": traceback.format_exc()
+            "error":
+                str(e),
+
+            "trace":
+                traceback.format_exc(),
         }
 
 
-# ---------------------------------------------------------
-# Full analysis
-# ---------------------------------------------------------
+# =========================================================
+# ANALYSIS
+# =========================================================
 
 @app.get("/analysis")
 def get_analysis():
 
     try:
 
-        natal_chart = natal.get_natal_chart()
+        natal_chart = (
+            natal.get_natal_chart()
+        )
 
-        transit_data = ephemeris.get_today_transits()
+        transit_data = (
+            ephemeris.get_today_transits()
+        )
 
         return {
-            "status": "ok",
-            "natal": natal_chart,
-            "transits": transit_data,
+
+            "status":
+                "ok",
+
+            "natal":
+                natal_chart,
+
+            "transits":
+                transit_data,
         }
 
     except Exception as e:
 
         return {
-            "error": str(e),
-            "trace": traceback.format_exc()
+
+            "error":
+                str(e),
+
+            "trace":
+                traceback.format_exc(),
         }
 
 
-# ---------------------------------------------------------
-# Astrology advisor
-# ---------------------------------------------------------
+# =========================================================
+# ADVISOR
+# =========================================================
 
 @app.post("/advisor")
-def ask_advisor(data: dict):
+def ask_advisor(
+    data: dict
+):
 
     try:
 
-        question = data.get("question", "").strip()
+        question = (
+            data.get(
+                "question",
+                ""
+            )
+            .strip()
+        )
+
+        history = (
+            data.get(
+                "history",
+                []
+            )
+        )
 
         if not question:
 
             return {
-                "error": "لطفاً سوال خود را وارد کنید."
+                "status":
+                    "error",
+
+                "message":
+                    "لطفاً سؤال خود را وارد کنید.",
             }
 
-        return {
-            "status": "ok",
-            "question": question,
-            "advice": advisor.get_advice(question)
-        }
+        if not isinstance(
+            history,
+            list
+        ):
+
+            history = []
+
+        # جلوگیری از ارسال تاریخچه بسیار بزرگ
+        history = history[-12:]
+
+        result = advisor.get_advice(
+            question,
+            history
+        )
+
+        return result
 
     except Exception as e:
 
+        print(
+            "ADVISOR ENDPOINT ERROR:",
+            repr(e)
+        )
+
         return {
-            "error": str(e),
-            "trace": traceback.format_exc()
+
+            "status":
+                "error",
+
+            "message":
+                "خطا در ارتباط با مشاور.",
+
+            "debug":
+                str(e),
+
+            "trace":
+                traceback.format_exc(),
         }
