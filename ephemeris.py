@@ -463,184 +463,551 @@ def _calculate_transit_aspects(
 # NATAL TARGETS
 # =========================================================
 
-def _extract_natal_targets(
-    natal_chart: dict
-):
+# =========================================================
+# NATAL TARGETS — ROBUST VERSION
+# =========================================================
+
+def _extract_natal_targets(natal_chart: dict):
 
     targets = {}
 
-    planets = natal_chart.get(
-        "planets",
-        {}
-    )
+    planets = natal_chart.get("planets", {})
 
-    for name, data in planets.items():
+    # -----------------------------------------------------
+    # پشتیبانی از planets به صورت dict یا list
+    # -----------------------------------------------------
 
-        if not isinstance(
-            data,
-            dict
-        ):
+    if isinstance(planets, dict):
+
+        planet_items = planets.items()
+
+    elif isinstance(planets, list):
+
+        planet_items = []
+
+        for item in planets:
+
+            if not isinstance(item, dict):
+                continue
+
+            name = (
+                item.get("name")
+                or item.get("planet")
+                or item.get("key")
+            )
+
+            if name:
+                planet_items.append(
+                    (name, item)
+                )
+
+    else:
+
+        planet_items = []
+
+
+    for name, data in planet_items:
+
+        if not isinstance(data, dict):
             continue
 
-        longitude = data.get(
-            "longitude"
-        )
+        # -------------------------------------------------
+        # longitude می‌تواند مستقیم یا داخل position باشد
+        # -------------------------------------------------
+
+        longitude = data.get("longitude")
+
+        if longitude is None:
+
+            position = data.get("position")
+
+            if isinstance(position, dict):
+                longitude = position.get("longitude")
 
         if longitude is None:
             continue
 
+        try:
+            longitude = float(longitude)
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
         targets[name] = {
-            "longitude":
-                float(longitude),
-
-            "target_type":
-                "planet",
-
-            "house":
-                data.get("house"),
-
-            "house_name_fa":
-                data.get(
-                    "house_name_fa"
-                ),
-
-            "sign":
-                data.get("sign"),
-
-            "sign_fa":
-                data.get("sign_fa"),
+            "longitude": longitude,
+            "target_type": "planet",
+            "house": data.get("house"),
+            "house_name_fa": data.get(
+                "house_name_fa"
+            ),
+            "sign": data.get("sign"),
+            "sign_fa": data.get("sign_fa"),
         }
+
+
+    # =====================================================
+    # NODES
+    # =====================================================
 
     nodes = natal_chart.get(
         "nodes",
         {}
     )
 
-    for name, data in nodes.items():
+    if isinstance(nodes, dict):
 
-        if not isinstance(
-            data,
-            dict
-        ):
+        node_items = nodes.items()
+
+    elif isinstance(nodes, list):
+
+        node_items = []
+
+        for item in nodes:
+
+            if not isinstance(item, dict):
+                continue
+
+            name = (
+                item.get("name")
+                or item.get("node")
+                or item.get("key")
+            )
+
+            if name:
+                node_items.append(
+                    (name, item)
+                )
+
+    else:
+
+        node_items = []
+
+
+    for name, data in node_items:
+
+        if not isinstance(data, dict):
             continue
 
-        longitude = data.get(
-            "longitude"
-        )
+        longitude = data.get("longitude")
+
+        if longitude is None:
+
+            position = data.get("position")
+
+            if isinstance(position, dict):
+                longitude = position.get("longitude")
 
         if longitude is None:
             continue
 
+        try:
+            longitude = float(longitude)
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
         targets[name] = {
-            "longitude":
-                float(longitude),
-
-            "target_type":
-                "node",
-
-            "house":
-                data.get("house"),
-
-            "house_name_fa":
-                data.get(
-                    "house_name_fa"
-                ),
-
-            "sign":
-                data.get("sign"),
-
-            "sign_fa":
-                data.get("sign_fa"),
+            "longitude": longitude,
+            "target_type": "node",
+            "house": data.get("house"),
+            "house_name_fa": data.get(
+                "house_name_fa"
+            ),
+            "sign": data.get("sign"),
+            "sign_fa": data.get("sign_fa"),
         }
+
+
+    # =====================================================
+    # ANGLES
+    # =====================================================
 
     angles = natal_chart.get(
         "angles",
         {}
     )
 
-    # =====================================================
+    if not isinstance(angles, dict):
+        angles = {}
+
+
+    # -----------------------------------------------------
     # ASC
-    # =====================================================
+    # -----------------------------------------------------
 
-    asc = angles.get(
-        "ascendant"
-    )
+    asc = angles.get("ascendant")
 
-    if isinstance(
-        asc,
-        dict
-    ):
-        asc_lon = asc.get(
-            "longitude"
-        )
+    if isinstance(asc, dict):
+        asc_lon = asc.get("longitude")
     else:
         asc_lon = asc
 
     if asc_lon is not None:
 
-        targets["ASC"] = {
-            "longitude":
-                float(asc_lon),
+        try:
 
-            "target_type":
-                "angle",
+            targets["ASC"] = {
+                "longitude": float(asc_lon),
+                "target_type": "angle",
+                "house": 1,
+                "house_name_fa": "خانه اول",
+                "sign": None,
+                "sign_fa": None,
+            }
 
-            "house":
-                1,
+        except (
+            TypeError,
+            ValueError,
+        ):
+            pass
 
-            "house_name_fa":
-                "خانه اول",
 
-            "sign":
-                None,
-
-            "sign_fa":
-                None,
-        }
-
-    # =====================================================
+    # -----------------------------------------------------
     # MC
-    # =====================================================
+    # -----------------------------------------------------
 
-    mc = angles.get(
-        "mc"
-    )
+    mc = angles.get("mc")
 
-    if isinstance(
-        mc,
-        dict
-    ):
-        mc_lon = mc.get(
-            "longitude"
-        )
+    if isinstance(mc, dict):
+        mc_lon = mc.get("longitude")
     else:
         mc_lon = mc
 
     if mc_lon is not None:
 
-        targets["MC"] = {
-            "longitude":
-                float(mc_lon),
+        try:
 
-            "target_type":
-                "angle",
+            targets["MC"] = {
+                "longitude": float(mc_lon),
+                "target_type": "angle",
+                "house": 10,
+                "house_name_fa": "خانه دهم",
+                "sign": None,
+                "sign_fa": None,
+            }
 
-            "house":
-                10,
+        except (
+            TypeError,
+            ValueError,
+        ):
+            pass
 
-            "house_name_fa":
-                "خانه دهم",
-
-            "sign":
-                None,
-
-            "sign_fa":
-                None,
-        }
 
     return targets
+# =========================================================
+# TRANSIT → NATAL — ROBUST VERSION
+# =========================================================
+# =========================================================
+# TRANSIT → NATAL — ROBUST VERSION
+# =========================================================
+
+def _calculate_natal_transits(
+    transit_positions: dict,
+    natal_chart: dict
+):
+
+    natal_targets = _extract_natal_targets(
+        natal_chart
+    )
+
+    results = []
+
+    if not natal_targets:
+        return results
 
 
+    # =====================================================
+    # بررسی هر سیاره ترانزیتی
+    # =====================================================
+
+    for transit_name, transit_data in (
+        transit_positions.items()
+    ):
+
+        if not isinstance(
+            transit_data,
+            dict
+        ):
+            continue
+
+        transit_lon = transit_data.get(
+            "longitude"
+        )
+
+        if transit_lon is None:
+            continue
+
+        try:
+            transit_lon = float(
+                transit_lon
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
+
+        # =================================================
+        # بررسی تمام نقاط چارت تولد
+        # =================================================
+
+        for natal_name, natal_data in (
+            natal_targets.items()
+        ):
+
+            natal_lon = natal_data.get(
+                "longitude"
+            )
+
+            if natal_lon is None:
+                continue
+
+            diff = _degree_difference(
+                transit_lon,
+                float(natal_lon),
+            )
+
+            aspect = _find_aspect(
+                diff
+            )
+
+            if not aspect:
+                continue
+
+
+            # =================================================
+            # IMPORTANCE
+            # =================================================
+
+            importance = aspect["weight"]
+
+
+            # نقاط بسیار مهم چارت
+            if natal_name in {
+                "Sun",
+                "Moon",
+                "ASC",
+                "MC",
+            }:
+
+                importance += 2
+
+
+            # سیارات بیرونی اهمیت بیشتری دارند
+            if transit_name in {
+                "Jupiter",
+                "Saturn",
+                "Uranus",
+                "Neptune",
+                "Pluto",
+            }:
+
+                importance += 1
+
+
+            natal_fa = PLANET_FA.get(
+                natal_name,
+                natal_name,
+            )
+
+
+            # =================================================
+            # HOUSE
+            # =================================================
+
+            house = natal_data.get(
+                "house"
+            )
+
+            house_name_fa = natal_data.get(
+                "house_name_fa"
+            )
+
+            if (
+                not house_name_fa
+                and house is not None
+            ):
+
+                try:
+
+                    house_name_fa = (
+                        f"خانه {int(house)}"
+                    )
+
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+
+                    house_name_fa = str(
+                        house
+                    )
+
+
+            # =================================================
+            # RESULT
+            # =================================================
+
+            results.append(
+                {
+
+                    # -----------------------------
+                    # Transit planet
+                    # -----------------------------
+
+                    "transit_planet":
+                        transit_name,
+
+                    "transit_planet_fa":
+                        PLANET_FA.get(
+                            transit_name,
+                            transit_name,
+                        ),
+
+                    "transit_symbol":
+                        PLANET_SYMBOL.get(
+                            transit_name,
+                            "",
+                        ),
+
+
+                    # -----------------------------
+                    # Natal target
+                    # -----------------------------
+
+                    "natal_target":
+                        natal_name,
+
+                    "natal_target_fa":
+                        natal_fa,
+
+                    "natal_planet_fa":
+                        natal_fa,
+
+                    "natal_symbol":
+                        PLANET_SYMBOL.get(
+                            natal_name,
+                            "",
+                        ),
+
+                    "target_type":
+                        natal_data.get(
+                            "target_type",
+                            "planet",
+                        ),
+
+
+                    # -----------------------------
+                    # Aspect
+                    # -----------------------------
+
+                    "aspect":
+                        aspect["aspect"],
+
+                    "aspect_fa":
+                        aspect["aspect_fa"],
+
+                    "aspect_symbol":
+                        aspect["aspect_symbol"],
+
+                    "aspect_degree":
+                        aspect["aspect_degree"],
+
+                    "exact_diff":
+                        round(
+                            diff,
+                            4,
+                        ),
+
+                    "orb":
+                        aspect["orb"],
+
+                    "importance":
+                        importance,
+
+
+                    # -----------------------------
+                    # Transit position
+                    # -----------------------------
+
+                    "transit_position":
+                        transit_data.get(
+                            "formatted",
+                            "",
+                        ),
+
+                    "transit_sign":
+                        transit_data.get(
+                            "sign"
+                        ),
+
+                    "transit_sign_fa":
+                        transit_data.get(
+                            "sign_fa"
+                        ),
+
+
+                    # -----------------------------
+                    # Natal position
+                    # -----------------------------
+
+                    "natal_longitude":
+                        round(
+                            float(natal_lon),
+                            6,
+                        ),
+
+                    "natal_sign":
+                        natal_data.get(
+                            "sign"
+                        ),
+
+                    "natal_sign_fa":
+                        natal_data.get(
+                            "sign_fa"
+                        ),
+
+                    "natal_house":
+                        house,
+
+                    "natal_house_name_fa":
+                        house_name_fa,
+
+
+                    # -----------------------------
+                    # Transit status
+                    # -----------------------------
+
+                    "transit_retrograde":
+                        transit_data.get(
+                            "retrograde",
+                            False,
+                        ),
+                }
+            )
+
+
+    # =====================================================
+    # SORT
+    # =====================================================
+
+    results.sort(
+        key=lambda x: (
+            -x["importance"],
+            x["orb"],
+        )
+    )
+
+    return results
+        
 # =========================================================
 # TRANSIT → NATAL
 # =========================================================
