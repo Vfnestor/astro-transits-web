@@ -1,47 +1,51 @@
-from ephemeris import get_full_transit_analysis
+from datetime import datetime, timedelta, timezone
+
+from ephemeris import (
+    get_full_transit_analysis,
+    _calculate_positions,
+    _calculate_natal_transits,
+    _to_julian_day,
+)
 
 
 # =========================================================
 # ASTRO VAHID — PERSONAL ASTROLOGY ADVISOR
-# Version 2.0
+# Version 3.0
+# Interactive / Contextual / 7-Day Analysis
 # =========================================================
 
-
-# =========================================================
-# تفسیر سیارات
-# =========================================================
 
 PLANET_MEANINGS = {
 
     "Sun":
-        "هویت، اراده، مسیر شخصی و احساس قدرت فردی",
+        "هویت، اراده و مسیر شخصی",
 
     "Moon":
-        "احساسات، امنیت روانی، خانواده و واکنش‌های ناخودآگاه",
+        "احساسات، امنیت روانی و واکنش‌های ناخودآگاه",
 
     "Mercury":
-        "فکر، ارتباط، تصمیم‌گیری و یادگیری",
+        "فکر، ارتباط، تصمیم‌گیری و تحلیل",
 
     "Venus":
-        "عشق، روابط، جذابیت، ارزش‌ها و مسائل مالی",
+        "روابط، ارزش‌ها، جذابیت و مسائل مالی",
 
     "Mars":
-        "انرژی، اقدام، رقابت، خشم و انگیزه",
+        "انرژی، اقدام، رقابت و انگیزه",
 
     "Jupiter":
-        "رشد، فرصت، توسعه، باورها و گسترش افق دید",
+        "رشد، فرصت، توسعه و گسترش",
 
     "Saturn":
-        "مسئولیت، محدودیت، آزمون، نظم و بلوغ",
+        "مسئولیت، محدودیت، نظم و بلوغ",
 
     "Uranus":
         "تغییر ناگهانی، آزادی و شکستن الگوهای قدیمی",
 
     "Neptune":
-        "شهود، خیال، ابهام و معنویت",
+        "شهود، خیال، ابهام و برداشت ذهنی",
 
     "Pluto":
-        "تحول عمیق، قدرت، پایان و شروع دوباره",
+        "تحول عمیق، قدرت و تغییر بنیادی",
 
     "North Node":
         "مسیر رشد و جهت تکاملی",
@@ -50,7 +54,7 @@ PLANET_MEANINGS = {
         "الگوهای آشنا و گذشته",
 
     "ASC":
-        "هویت بیرونی، رفتار و نحوه مواجهه با جهان",
+        "هویت بیرونی و نحوه مواجهه با جهان",
 
     "MC":
         "مسیر شغلی، جایگاه اجتماعی و اهداف بلندمدت",
@@ -58,43 +62,310 @@ PLANET_MEANINGS = {
 
 
 # =========================================================
-# تفسیر آسپکت
+# تشخیص موضوع سؤال
 # =========================================================
 
-def _aspect_meaning(aspect):
+def _detect_topic(question):
 
-    meanings = {
+    text = question.lower()
 
-        "conjunction":
-            "انرژی دو عامل بسیار متمرکز و پررنگ می‌شود.",
+    if any(
+        word in text
+        for word in [
+            "طلا",
+            "سرمایه",
+            "سرمایه گذاری",
+            "سرمایه‌گذاری",
+            "پول",
+            "خرید",
+            "فروش",
+            "دلار",
+            "ارز",
+            "بورس",
+            "کریپتو",
+            "بیت کوین",
+        ]
+    ):
+        return "finance"
 
-        "opposition":
-            "نیاز به ایجاد تعادل میان دو نیروی متفاوت وجود دارد.",
+    if any(
+        word in text
+        for word in [
+            "کار",
+            "شغل",
+            "شغلی",
+            "استخدام",
+            "کسب و کار",
+            "کسب‌وکار",
+            "شرکت",
+        ]
+    ):
+        return "career"
 
-        "trine":
-            "جریان نسبتاً روان و هماهنگی طبیعی ایجاد می‌شود.",
+    if any(
+        word in text
+        for word in [
+            "عشق",
+            "رابطه",
+            "ازدواج",
+            "همسر",
+            "دوست",
+            "عاطفی",
+        ]
+    ):
+        return "relationship"
 
-        "square":
-            "تنش و فشار ایجاد می‌شود و معمولاً فرد را به تغییر وادار می‌کند.",
+    if any(
+        word in text
+        for word in [
+            "تصمیم",
+            "انتخاب",
+            "مردد",
+            "دوراهی",
+            "دو راه",
+            "تعلل",
+            "صبر",
+            "عجله",
+        ]
+    ):
+        return "decision"
 
-        "sextile":
-            "فرصتی برای رشد وجود دارد، اما استفاده از آن نیازمند اقدام است.",
+    return "general"
 
-        "quincunx":
-            "نیاز به سازگاری، تنظیم و تغییر زاویه نگاه وجود دارد.",
-    }
 
-    return meanings.get(
-        aspect,
-        "نیاز به توجه و بررسی بیشتر وجود دارد.",
+# =========================================================
+# تشخیص نیاز به اطلاعات بیشتر
+# =========================================================
+
+def _needs_more_information(
+    question,
+    history,
+):
+
+    topic = _detect_topic(
+        question
+    )
+
+    # اگر قبلاً سؤال تکمیلی پرسیده‌ایم
+    if len(history) >= 2:
+        return False
+
+    if topic == "finance":
+
+        # سؤال‌های خیلی کلی مالی
+        if not any(
+            word in question.lower()
+            for word in [
+                "کوتاه",
+                "بلند",
+                "یک هفته",
+                "هفته",
+                "ماه",
+                "ماهانه",
+                "چند ماه",
+                "سرمایه",
+                "مبلغ",
+                "بخشی",
+                "همه",
+            ]
+        ):
+            return True
+
+    if topic == "decision":
+
+        if not any(
+            word in question.lower()
+            for word in [
+                "امروز",
+                "فردا",
+                "هفته",
+                "زمان",
+                "راه اول",
+                "راه دوم",
+            ]
+        ):
+            return True
+
+    return False
+
+
+# =========================================================
+# سؤال تکمیلی
+# =========================================================
+
+def _follow_up_question(
+    question
+):
+
+    topic = _detect_topic(
+        question
+    )
+
+    if topic == "finance":
+
+        return (
+            "برای اینکه تحلیل را دقیق‌تر کنم، "
+            "سه نکته برایم مشخص کن:\n\n"
+            "۱. افق سرمایه‌گذاری‌ات کوتاه‌مدت است "
+            "یا چندماهه/بلندمدت؟\n\n"
+            "۲. قصد داری تمام سرمایه را وارد کنی "
+            "یا فقط بخشی از آن را؟\n\n"
+            "۳. اگر در چند روز آینده شرایط مطابق "
+            "انتظارت پیش نرفت، امکان صبر کردن داری؟"
+        )
+
+    if topic == "decision":
+
+        return (
+            "برای اینکه بین «اقدام» و «صبر» "
+            "تفسیر دقیق‌تری بدهم، بگو:\n\n"
+            "۱. این تصمیم مربوط به چه موضوعی است؟\n\n"
+            "۲. آیا مهلت مشخصی برای تصمیم داری؟\n\n"
+            "۳. اگر امروز تصمیم نگیری، چه چیزی ممکن "
+            "است از دست برود؟"
+        )
+
+    return (
+        "قبل از اینکه جمع‌بندی کنم، کمی بیشتر "
+        "درباره شرایط واقعی این موضوع برایم بگو "
+        "تا تحلیل را شخصی‌تر انجام دهم."
     )
 
 
 # =========================================================
-# محاسبه اهمیت
+# تحلیل یک لحظه
+# =========================================================
+
+def _get_transits_for_datetime(
+    natal_chart,
+    dt
+):
+
+    jd = _to_julian_day(
+        dt
+    )
+
+    positions = _calculate_positions(
+        jd
+    )
+
+    natal_transits = (
+        _calculate_natal_transits(
+            positions,
+            natal_chart
+        )
+    )
+
+    return {
+        "positions":
+            positions,
+
+        "natal_transits":
+            natal_transits,
+    }
+
+
+# =========================================================
+# تحلیل روند ۷ روز
+# =========================================================
+
+def _analyze_week(
+    natal_chart
+):
+
+    now = datetime.now(
+        timezone.utc
+    )
+
+    samples = []
+
+    for day in range(8):
+
+        dt = now + timedelta(
+            days=day
+        )
+
+        data = _get_transits_for_datetime(
+            natal_chart,
+            dt
+        )
+
+        important = sorted(
+            data["natal_transits"],
+            key=lambda item: (
+                -int(
+                    item.get(
+                        "importance",
+                        0
+                    )
+                ),
+                float(
+                    item.get(
+                        "orb",
+                        99
+                    )
+                ),
+            )
+        )[:5]
+
+        samples.append(
+            {
+                "day": day,
+                "date": dt.date().isoformat(),
+                "aspects": important,
+            }
+        )
+
+    return samples
+
+
+# =========================================================
+# تشخیص روند یک ترانزیت
+# =========================================================
+
+def _trend(
+    today_item,
+    future_item
+):
+
+    if not today_item or not future_item:
+        return "نامشخص"
+
+    today_orb = float(
+        today_item.get(
+            "orb",
+            99
+        )
+    )
+
+    future_orb = float(
+        future_item.get(
+            "orb",
+            99
+        )
+    )
+
+    if future_orb < today_orb - 0.15:
+        return "در حال نزدیک شدن"
+
+    if future_orb > today_orb + 0.15:
+        return "در حال جدا شدن"
+
+    return "تقریباً ثابت"
+
+
+# =========================================================
+# اهمیت
 # =========================================================
 
 def _importance(item):
+
+    score = int(
+        item.get(
+            "importance",
+            0
+        )
+    )
 
     transit = item.get(
         "transit_planet"
@@ -109,39 +380,31 @@ def _importance(item):
     )
 
     orb = float(
-        item.get("orb", 99)
+        item.get(
+            "orb",
+            99
+        )
     )
 
-    score = 0
-
-    # سیارات کندتر اهمیت بیشتری دارند
     if transit in [
+        "Jupiter",
         "Saturn",
         "Uranus",
         "Neptune",
         "Pluto",
-        "Jupiter",
     ]:
         score += 3
 
-    else:
-        score += 1
-
-    # نقاط مهم چارت تولد
     if natal in [
         "Sun",
         "Moon",
-        "North Node",
-        "South Node",
         "ASC",
         "MC",
+        "North Node",
+        "South Node",
     ]:
         score += 3
 
-    else:
-        score += 1
-
-    # آسپکت‌های قوی
     if aspect in [
         "conjunction",
         "opposition",
@@ -149,13 +412,6 @@ def _importance(item):
     ]:
         score += 2
 
-    elif aspect in [
-        "trine",
-        "sextile",
-    ]:
-        score += 1
-
-    # نزدیکی اورب
     if orb <= 0.5:
         score += 4
 
@@ -168,72 +424,23 @@ def _importance(item):
     elif orb <= 3:
         score += 1
 
-    # اهمیت موجود در موتور اصلی
-    score += int(
-        item.get(
-            "importance",
-            0
-        )
-    )
-
     return score
 
 
 # =========================================================
-# تشخیص نوع سؤال
+# تحلیل تصمیم
 # =========================================================
 
-def _question_type(question):
+def _decision_analysis(
+    aspects
+):
 
-    text = question.lower()
+    action = 0
+    caution = 0
 
-    decision_words = [
-        "تصمیم",
-        "انتخاب",
-        "انتخاب کنم",
-        "دوراهی",
-        "دو راه",
-        "مردد",
-        "مرددم",
-        "تصمیم بگیرم",
-        "تصمیم بگیرم یا",
-    ]
+    reasons = []
 
-    delay_words = [
-        "صبر",
-        "تعلل",
-        "صبر کنم",
-        "عجله",
-        "سریع",
-        "فوری",
-        "الان",
-    ]
-
-    for word in decision_words:
-
-        if word in text:
-            return "decision"
-
-    for word in delay_words:
-
-        if word in text:
-            return "decision"
-
-    return "general"
-
-
-# =========================================================
-# تحلیل تصمیم‌گیری
-# =========================================================
-
-def _decision_guidance(aspects):
-
-    action_score = 0
-    caution_score = 0
-
-    evidence = []
-
-    for item in aspects[:12]:
+    for item in aspects:
 
         transit = item.get(
             "transit_planet"
@@ -243,24 +450,13 @@ def _decision_guidance(aspects):
             "aspect"
         )
 
-        orb = float(
-            item.get(
-                "orb",
-                99
-            )
-        )
-
-        natal = item.get(
-            "natal_target"
-        )
-
-        importance = _importance(
+        score = _importance(
             item
         )
 
-        # -------------------------------------------------
-        # انرژی اقدام
-        # -------------------------------------------------
+        # -----------------------------
+        # Mars
+        # -----------------------------
 
         if transit == "Mars":
 
@@ -270,11 +466,11 @@ def _decision_guidance(aspects):
                 "sextile",
             ]:
 
-                action_score += importance
+                action += score
 
-                evidence.append(
-                    "مریخ در وضعیت نسبتاً حمایتی "
-                    "قرار دارد و انرژی اقدام را افزایش می‌دهد."
+                reasons.append(
+                    "مریخ از نظر نمادین انرژی "
+                    "اقدام و حرکت را تقویت می‌کند."
                 )
 
             elif aspect in [
@@ -282,16 +478,16 @@ def _decision_guidance(aspects):
                 "opposition",
             ]:
 
-                caution_score += importance
+                caution += score
 
-                evidence.append(
-                    "مریخ تحت فشار است و بهتر است "
-                    "از واکنش عجولانه پرهیز شود."
+                reasons.append(
+                    "مریخ تحت فشار است و احتمال "
+                    "واکنش عجولانه بیشتر می‌شود."
                 )
 
-        # -------------------------------------------------
-        # مشتری
-        # -------------------------------------------------
+        # -----------------------------
+        # Jupiter
+        # -----------------------------
 
         if transit == "Jupiter":
 
@@ -301,11 +497,11 @@ def _decision_guidance(aspects):
                 "sextile",
             ]:
 
-                action_score += importance
+                action += score
 
-                evidence.append(
-                    "مشتری نشانه‌ای از رشد و گسترش "
-                    "فرصت‌ها نشان می‌دهد."
+                reasons.append(
+                    "مشتری از نظر نمادین فضای "
+                    "رشد و گسترش را تقویت می‌کند."
                 )
 
             elif aspect in [
@@ -313,61 +509,61 @@ def _decision_guidance(aspects):
                 "opposition",
             ]:
 
-                caution_score += importance
+                caution += score
 
-                evidence.append(
-                    "مشتری می‌تواند تمایل به "
-                    "بزرگ‌نمایی یا تصمیم بیش از حد خوش‌بینانه ایجاد کند."
+                reasons.append(
+                    "مشتری می‌تواند باعث خوش‌بینی "
+                    "بیش از اندازه شود."
                 )
 
-        # -------------------------------------------------
-        # زحل
-        # -------------------------------------------------
+        # -----------------------------
+        # Saturn
+        # -----------------------------
 
         if transit == "Saturn":
 
-            caution_score += importance
+            caution += score
 
-            evidence.append(
-                "زحل بر احتیاط، مسئولیت و بررسی "
-                "پیامدهای بلندمدت تأکید می‌کند."
+            reasons.append(
+                "زحل بر بررسی، مسئولیت و "
+                "پیامدهای بلندمدت تأکید دارد."
             )
 
-        # -------------------------------------------------
-        # اورانوس
-        # -------------------------------------------------
+        # -----------------------------
+        # Uranus
+        # -----------------------------
 
         if transit == "Uranus":
 
             if aspect in [
-                "conjunction",
                 "square",
                 "opposition",
+                "conjunction",
             ]:
 
-                caution_score += importance
+                caution += score
 
-                evidence.append(
-                    "اورانوس می‌تواند شرایط غیرقابل‌پیش‌بینی "
-                    "یا تغییر ناگهانی ایجاد کند."
+                reasons.append(
+                    "اورانوس می‌تواند شرایط "
+                    "غافلگیرکننده ایجاد کند."
                 )
 
-        # -------------------------------------------------
-        # نپتون
-        # -------------------------------------------------
+        # -----------------------------
+        # Neptune
+        # -----------------------------
 
         if transit == "Neptune":
 
-            caution_score += importance
+            caution += score
 
-            evidence.append(
-                "نپتون می‌تواند وضوح تصمیم‌گیری را کاهش دهد؛ "
-                "بررسی واقعیت‌ها اهمیت بیشتری پیدا می‌کند."
+            reasons.append(
+                "نپتون می‌تواند وضوح تصمیم‌گیری "
+                "را کاهش دهد."
             )
 
-        # -------------------------------------------------
-        # عطارد
-        # -------------------------------------------------
+        # -----------------------------
+        # Mercury
+        # -----------------------------
 
         if transit == "Mercury":
 
@@ -376,284 +572,123 @@ def _decision_guidance(aspects):
                 "sextile",
             ]:
 
-                action_score += importance
+                action += score
 
             elif aspect in [
                 "square",
                 "opposition",
             ]:
 
-                caution_score += importance
+                caution += score
 
-    # -----------------------------------------------------
-    # نتیجه
-    # -----------------------------------------------------
-
-    if action_score > caution_score + 5:
-
-        recommendation = (
-            "کفه چارت فعلی بیشتر به سمت اقدام "
-            "و تصمیم‌گیری متمایل است؛ البته نه تصمیم "
-            "هیجانی و بدون بررسی."
-        )
+    if action > caution + 8:
 
         direction = "action"
 
-    elif caution_score > action_score + 5:
-
-        recommendation = (
-            "کفه چارت فعلی بیشتر به سمت مکث، "
-            "بررسی اطلاعات و پرهیز از تصمیم عجولانه "
-            "متمایل است."
-        )
+    elif caution > action + 8:
 
         direction = "delay"
 
     else:
 
-        recommendation = (
-            "چارت فعلی پیام کاملاً یک‌طرفه‌ای "
-            "برای عجله یا تأخیر نمی‌دهد. بهتر است "
-            "قبل از انتخاب، اطلاعات دو مسیر را "
-            "مقایسه کنی و سپس تصمیم بگیری."
-        )
-
         direction = "balanced"
 
     return {
+        "action":
+            action,
+
+        "caution":
+            caution,
+
         "direction":
             direction,
 
-        "action_score":
-            action_score,
-
-        "caution_score":
-            caution_score,
-
-        "recommendation":
-            recommendation,
-
-        "evidence":
-            evidence[:5],
+        "reasons":
+            list(
+                dict.fromkeys(
+                    reasons
+                )
+            )[:5],
     }
 
 
 # =========================================================
-# Advice
+# تحلیل مالی
 # =========================================================
 
-def get_advice(question: str):
+def _finance_analysis(
+    question,
+    natal_chart,
+):
 
-    question = (
-        question or ""
-    ).strip()
-
-    if not question:
-
-        return (
-            "لطفاً سؤال خود را وارد کنید."
+    today = _get_transits_for_datetime(
+        natal_chart,
+        datetime.now(
+            timezone.utc
         )
-
-    try:
-
-        analysis = (
-            get_full_transit_analysis()
-        )
-
-    except Exception as exc:
-
-        print(
-            "Advisor analysis error:",
-            repr(exc),
-        )
-
-        return (
-            "مشاور نتوانست اطلاعات نجومی "
-            "فعلی را دریافت کند. لطفاً دوباره تلاش کنید."
-        )
-
-    aspects = analysis.get(
-        "natal_transits",
-        []
     )
 
-    if not aspects:
+    week = _analyze_week(
+        natal_chart
+    )
 
-        return (
-            f"سؤال شما: «{question}»\n\n"
-            "در محدوده اورب فعلی، "
-            "جنبه ترانزیتی برجسته‌ای نسبت به "
-            "چارت تولد پیدا نشد.\n\n"
-            "بنابراین برای این تصمیم بهتر است "
-            "فعلاً وزن بیشتری به شرایط واقعی، "
-            "اطلاعات موجود و پیامدهای هر انتخاب بدهی."
-        )
-
-    ranked = sorted(
-        aspects,
+    today_aspects = sorted(
+        today["natal_transits"],
         key=_importance,
-        reverse=True,
+        reverse=True
     )
 
-    selected = ranked[:8]
+    decision = _decision_analysis(
+        today_aspects[:15]
+    )
 
-    # =====================================================
-    # سؤال تصمیم‌گیری
-    # =====================================================
+    return {
+        "today":
+            today_aspects[:8],
 
-    if _question_type(question) == "decision":
+        "week":
+            week,
 
-        decision = _decision_guidance(
-            selected
-        )
+        "decision":
+            decision,
+    }
 
-        lines = []
 
-        for item in selected[:6]:
+# =========================================================
+# ساخت پاسخ
+# =========================================================
 
-            transit = item.get(
-                "transit_planet_fa",
-                item.get(
-                    "transit_planet",
-                    "نامشخص"
-                ),
-            )
+def _build_finance_response(
+    question,
+    result,
+):
 
-            natal = item.get(
-                "natal_planet_fa",
-                item.get(
-                    "natal_target_fa",
-                    item.get(
-                        "natal_target",
-                        "نامشخص"
-                    ),
-                ),
-            )
+    today = result[
+        "today"
+    ]
 
-            aspect = item.get(
-                "aspect_fa",
-                item.get(
-                    "aspect",
-                    "نامشخص"
-                ),
-            )
-
-            orb = item.get(
-                "orb"
-            )
-
-            house = item.get(
-                "natal_house_name_fa"
-            )
-
-            line = (
-                f"• {transit} فعلی با "
-                f"{natal} تولدی در وضعیت "
-                f"{aspect}"
-            )
-
-            if orb is not None:
-
-                line += (
-                    f" با اورب "
-                    f"{float(orb):.2f}°"
-                )
-
-            line += " قرار دارد."
-
-            if house:
-
-                line += (
-                    f" این ترانزیت با "
-                    f"{house} مرتبط است."
-                )
-
-            lines.append(
-                line
-            )
-
-        if decision["direction"] == "action":
-
-            final_advice = (
-                "اگر بخواهم بین «تعلل» و "
-                "«اقدام» یکی را انتخاب کنم، "
-                "بر اساس این خوانش نجومی، "
-                "اقدام آگاهانه گزینه مناسب‌تری است. "
-                "اما قبل از اقدام یک بررسی کوتاه "
-                "از ریسک‌ها و اطلاعات واقعی انجام بده."
-            )
-
-        elif decision["direction"] == "delay":
-
-            final_advice = (
-                "اگر بخواهم بین «تعلل» و "
-                "«تصمیم سریع» یکی را انتخاب کنم، "
-                "بر اساس این خوانش نجومی، "
-                "مکث و بررسی بیشتر مناسب‌تر است. "
-                "این مکث به معنی رها کردن تصمیم نیست؛ "
-                "بلکه یعنی قبل از حرکت، اطلاعات ناقص "
-                "را کامل کنی."
-            )
-
-        else:
-
-            final_advice = (
-                "در این لحظه چارت یک پاسخ کاملاً "
-                "قطعی به نفع عجله یا تعلل نمی‌دهد. "
-                "بهترین رویکرد این است که یک مهلت "
-                "کوتاه و مشخص برای جمع‌آوری اطلاعات "
-                "تعیین کنی و بعد تصمیم بگیری."
-            )
-
-        return (
-            f"سؤال شما: «{question}»\n\n"
-
-            "### 🔭 وضعیت فعلی\n"
-            + "\n".join(lines)
-            + "\n\n"
-
-            "### 🧭 نظر مشاور\n"
-            + final_advice
-            + "\n\n"
-
-            "### 📊 جهت کلی\n"
-            f"تمایل به اقدام: "
-            f"{decision['action_score']}\n"
-            f"تمایل به احتیاط: "
-            f"{decision['caution_score']}\n\n"
-
-            "### ⚠️ نکته مهم\n"
-            "این یک تفسیر نجومی و نمادین است؛ "
-            "تصمیم نهایی را بر اساس واقعیت‌های "
-            "زندگی، اطلاعات قابل بررسی و پیامدهای "
-            "واقعی هر انتخاب بگیر."
-        )
-
-    # =====================================================
-    # سؤال عمومی
-    # =====================================================
+    decision = result[
+        "decision"
+    ]
 
     lines = []
 
-    for item in selected:
+    for item in today[:6]:
 
         transit = item.get(
             "transit_planet_fa",
             item.get(
                 "transit_planet",
                 "نامشخص"
-            ),
+            )
         )
 
         natal = item.get(
             "natal_planet_fa",
             item.get(
                 "natal_target_fa",
-                item.get(
-                    "natal_target",
-                    "نامشخص"
-                ),
-            ),
+                "نامشخص"
+            )
         )
 
         aspect = item.get(
@@ -661,87 +696,435 @@ def get_advice(question: str):
             item.get(
                 "aspect",
                 "نامشخص"
-            ),
+            )
+        )
+
+        orb = float(
+            item.get(
+                "orb",
+                0
+            )
         )
 
         house = item.get(
             "natal_house_name_fa"
         )
 
-        meaning = _aspect_meaning(
-            item.get(
-                "aspect"
-            )
-        )
-
-        line = (
+        text = (
             f"• {transit} فعلی با "
             f"{natal} تولدی در وضعیت "
-            f"{aspect} قرار دارد. "
-            f"{meaning}"
+            f"{aspect} قرار دارد "
+            f"(Orb {orb:.2f}°)"
         )
 
         if house:
-
-            line += (
-                f" این موضوع با "
-                f"{house} چارت تولد "
-                f"ارتباط دارد."
+            text += (
+                f" و با {house} مرتبط است."
             )
 
+        else:
+            text += "."
+
         lines.append(
-            line
+            text
         )
 
-    strongest = selected[0]
+    # -----------------------------------------------------
+    # جهت تصمیم
+    # -----------------------------------------------------
 
-    strongest_transit = strongest.get(
-        "transit_planet_fa",
-        strongest.get(
-            "transit_planet",
-            "نامشخص"
-        ),
-    )
+    if decision["direction"] == "action":
 
-    strongest_natal = strongest.get(
-        "natal_planet_fa",
-        strongest.get(
-            "natal_target_fa",
+        conclusion = (
+            "در خوانش نجومی امروز، کفه کمی "
+            "به سمت اقدام متمایل است. با این حال "
+            "این به معنی مناسب بودن ورود یک‌باره "
+            "و بدون مدیریت ریسک نیست."
+        )
+
+    elif decision["direction"] == "delay":
+
+        conclusion = (
+            "در خوانش نجومی امروز، کفه بیشتر "
+            "به سمت احتیاط و مکث متمایل است. "
+            "بهتر است تصمیم عجولانه نگیری و "
+            "اطلاعات بیشتری جمع کنی."
+        )
+
+    else:
+
+        conclusion = (
+            "خوانش امروز یک سیگنال کاملاً "
+            "یک‌طرفه برای اقدام یا تأخیر نشان "
+            "نمی‌دهد. بنابراین بهتر است تصمیم "
+            "را مرحله‌ای و با مدیریت ریسک بگیری."
+        )
+
+    # -----------------------------------------------------
+    # روند هفته
+    # -----------------------------------------------------
+
+    week_text = []
+
+    for day in result["week"][1:]:
+
+        if not day["aspects"]:
+            continue
+
+        strongest = day["aspects"][0]
+
+        transit = strongest.get(
+            "transit_planet_fa",
             strongest.get(
-                "natal_target",
-                "نامشخص"
-            ),
-        ),
-    )
+                "transit_planet",
+                ""
+            )
+        )
 
-    strongest_aspect = strongest.get(
-        "aspect_fa",
-        strongest.get(
-            "aspect",
-            "نامشخص"
-        ),
-    )
+        natal = strongest.get(
+            "natal_planet_fa",
+            strongest.get(
+                "natal_target_fa",
+                ""
+            )
+        )
 
-    conclusion = (
-        f"مهم‌ترین نشانه فعلی مربوط به "
-        f"{strongest_transit} و "
-        f"{strongest_natal} در وضعیت "
-        f"{strongest_aspect} است."
-    )
+        aspect = strongest.get(
+            "aspect_fa",
+            strongest.get(
+                "aspect",
+                ""
+            )
+        )
+
+        orb = float(
+            strongest.get(
+                "orb",
+                0
+            )
+        )
+
+        week_text.append(
+            f"• +{day['day']} روز: "
+            f"{transit} با {natal} "
+            f"{aspect} — Orb {orb:.2f}°"
+        )
 
     return (
         f"سؤال شما: «{question}»\n\n"
 
-        "### وضعیت فعلی\n"
+        "### 🔭 تحلیل چارت امروز\n"
         + "\n".join(lines)
         + "\n\n"
 
-        "### جمع‌بندی\n"
+        "### 📅 روند هفت روز آینده\n"
+        + "\n".join(
+            week_text[:7]
+        )
+        + "\n\n"
+
+        "### 🧭 جمع‌بندی مشاور\n"
         + conclusion
         + "\n\n"
 
-        "این متن یک تفسیر نجومی است و "
-        "نباید به‌عنوان پیش‌بینی قطعی یا "
-        "جایگزین تصمیم‌گیری بر اساس واقعیت "
-        "در نظر گرفته شود."
+        "### 📊 وضعیت کلی\n"
+        f"تمایل به اقدام: "
+        f"{decision['action']}\n"
+        f"تمایل به احتیاط: "
+        f"{decision['caution']}\n\n"
+
+        "### 🔎 نکته مهم\n"
+        "در موضوعات مالی، این تحلیل صرفاً "
+        "یک خوانش نجومی است و پیش‌بینی قطعی "
+        "قیمت طلا یا توصیه مالی محسوب نمی‌شود. "
+        "تصمیم نهایی را بر اساس قیمت، روند بازار، "
+        "نقدینگی، ریسک و شرایط واقعی خودت بگیر."
     )
+
+
+# =========================================================
+# پاسخ عمومی
+# =========================================================
+
+def _build_general_response(
+    question,
+    aspects,
+):
+
+    lines = []
+
+    for item in aspects[:7]:
+
+        transit = item.get(
+            "transit_planet_fa",
+            item.get(
+                "transit_planet",
+                ""
+            )
+        )
+
+        natal = item.get(
+            "natal_planet_fa",
+            item.get(
+                "natal_target_fa",
+                ""
+            )
+        )
+
+        aspect = item.get(
+            "aspect_fa",
+            item.get(
+                "aspect",
+                ""
+            )
+        )
+
+        orb = float(
+            item.get(
+                "orb",
+                0
+            )
+        )
+
+        lines.append(
+            f"• {transit} با {natal} "
+            f"در وضعیت {aspect} "
+            f"(Orb {orb:.2f}°)"
+        )
+
+    strongest = aspects[0]
+
+    return (
+        f"سؤال شما: «{question}»\n\n"
+
+        "### 🔭 مهم‌ترین نشانه‌های فعلی\n"
+        + "\n".join(lines)
+        + "\n\n"
+
+        "### 🧭 برداشت مشاور\n"
+        f"قوی‌ترین نشانه فعلی مربوط به "
+        f"{strongest.get('transit_planet_fa', '')} "
+        f"و {strongest.get('natal_planet_fa', '')} "
+        f"در وضعیت "
+        f"{strongest.get('aspect_fa', '')} است.\n\n"
+
+        "این تفسیر نجومی جنبه نمادین دارد و "
+        "پیش‌بینی قطعی آینده نیست."
+    )
+
+
+# =========================================================
+# MAIN ADVISOR
+# =========================================================
+
+def get_advice(
+    question: str,
+    history=None,
+):
+
+    question = (
+        question or ""
+    ).strip()
+
+    history = history or []
+
+    if not question:
+
+        return {
+            "status": "error",
+            "message":
+                "لطفاً سؤال خود را وارد کنید.",
+        }
+
+    try:
+
+        analysis = (
+            get_full_transit_analysis()
+        )
+
+        natal_chart = None
+
+        try:
+            import natal
+
+            natal_chart = (
+                natal.get_natal_chart()
+            )
+
+        except Exception as exc:
+
+            print(
+                "Natal loading error:",
+                repr(exc)
+            )
+
+        # =================================================
+        # سؤال تکمیلی
+        # =================================================
+
+        if _needs_more_information(
+            question,
+            history
+        ):
+
+            return {
+                "status":
+                    "follow_up",
+
+                "question":
+                    question,
+
+                "topic":
+                    _detect_topic(
+                        question
+                    ),
+
+                "message":
+                    _follow_up_question(
+                        question
+                    ),
+
+                "analysis_ready":
+                    False,
+            }
+
+        aspects = sorted(
+            analysis.get(
+                "natal_transits",
+                []
+            ),
+            key=_importance,
+            reverse=True,
+        )
+
+        topic = _detect_topic(
+            question
+        )
+
+        # =================================================
+        # مالی
+        # =================================================
+
+        if (
+            topic == "finance"
+            and natal_chart is not None
+        ):
+
+            finance = _finance_analysis(
+                question,
+                natal_chart
+            )
+
+            response = _build_finance_response(
+                question,
+                finance
+            )
+
+        # =================================================
+        # تصمیم‌گیری
+        # =================================================
+
+        elif topic == "decision":
+
+            decision = _decision_analysis(
+                aspects[:15]
+            )
+
+            if decision["direction"] == "action":
+
+                conclusion = (
+                    "کفه فعلی بیشتر به سمت "
+                    "اقدام آگاهانه متمایل است؛ "
+                    "اما نه تصمیم هیجانی."
+                )
+
+            elif decision["direction"] == "delay":
+
+                conclusion = (
+                    "کفه فعلی بیشتر به سمت "
+                    "مکث و بررسی بیشتر متمایل است."
+                )
+
+            else:
+
+                conclusion = (
+                    "سیگنال فعلی کاملاً یک‌طرفه "
+                    "نیست؛ بهتر است تصمیم را "
+                    "مرحله‌ای بگیری."
+                )
+
+            response = (
+                f"سؤال شما: «{question}»\n\n"
+
+                "### 🔭 تحلیل\n"
+                + "\n".join(
+                    [
+                        f"• {x.get('transit_planet_fa', '')} "
+                        f"با {x.get('natal_planet_fa', '')} "
+                        f"{x.get('aspect_fa', '')} "
+                        f"(Orb {float(x.get('orb', 0)):.2f}°)"
+                        for x in aspects[:7]
+                    ]
+                )
+                + "\n\n"
+
+                "### 🧭 نظر مشاور\n"
+                + conclusion
+                + "\n\n"
+
+                "این برداشت بر اساس تفسیر نجومی "
+                "است و تصمیم نهایی باید با توجه "
+                "به شرایط واقعی گرفته شود."
+            )
+
+        # =================================================
+        # عمومی
+        # =================================================
+
+        else:
+
+            response = _build_general_response(
+                question,
+                aspects
+            )
+
+        return {
+            "status":
+                "ok",
+
+            "question":
+                question,
+
+            "topic":
+                topic,
+
+            "message":
+                response,
+
+            "analysis_ready":
+                True,
+        }
+
+    except Exception as exc:
+
+        import traceback
+
+        print(
+            "ADVISOR ERROR:",
+            repr(exc)
+        )
+
+        print(
+            traceback.format_exc()
+        )
+
+        return {
+            "status":
+                "error",
+
+            "message":
+                "خطایی در تحلیل مشاور رخ داد.",
+
+            "debug":
+                str(exc),
+        }
