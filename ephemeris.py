@@ -6,7 +6,7 @@ import swisseph as swe
 
 # =========================================================
 # ASTRO VAHID — EPHEMERIS ENGINE
-# Version 3.1
+# Version 3.2
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -128,6 +128,7 @@ def _normalize_degree(value: float) -> float:
 
 
 def _degree_difference(a: float, b: float) -> float:
+
     diff = abs(a - b) % 360.0
 
     if diff > 180.0:
@@ -139,7 +140,11 @@ def _degree_difference(a: float, b: float) -> float:
 def _to_julian_day(dt: datetime) -> float:
 
     if dt.tzinfo is not None:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        dt = dt.astimezone(
+            timezone.utc
+        ).replace(
+            tzinfo=None
+        )
 
     hour = (
         dt.hour
@@ -191,12 +196,17 @@ def _find_aspect(diff: float):
         "aspect_fa": data["fa"],
         "aspect_symbol": data["symbol"],
         "aspect_degree": data["degree"],
-        "orb": round(orb, 4),
+        "orb": round(
+            orb,
+            4
+        ),
         "weight": data["weight"],
     }
 
 
-def _format_position(longitude: float) -> dict:
+def _format_position(
+    longitude: float
+) -> dict:
 
     signs = [
         "Aries",
@@ -286,7 +296,9 @@ def _format_position(longitude: float) -> dict:
 # PLANET POSITIONS
 # =========================================================
 
-def _calculate_positions(jd: float):
+def _calculate_positions(
+    jd: float
+):
 
     positions = {}
 
@@ -305,38 +317,44 @@ def _calculate_positions(jd: float):
         )
 
         positions[name] = {
-            "longitude": position[
-                "longitude"
-            ],
-            "sign": position[
-                "sign"
-            ],
-            "sign_fa": position[
-                "sign_fa"
-            ],
-            "degree": position[
-                "degree"
-            ],
-            "minute": position[
-                "minute"
-            ],
-            "second": position[
-                "second"
-            ],
-            "formatted": position[
-                "formatted"
-            ],
-            "retrograde": speed < 0,
-            "speed": round(
-                speed,
-                6,
-            ),
-            "planet_fa": PLANET_FA[
-                name
-            ],
-            "symbol": PLANET_SYMBOL[
-                name
-            ],
+            "longitude":
+                position["longitude"],
+
+            "sign":
+                position["sign"],
+
+            "sign_fa":
+                position["sign_fa"],
+
+            "degree":
+                position["degree"],
+
+            "minute":
+                position["minute"],
+
+            "second":
+                position["second"],
+
+            "formatted":
+                position["formatted"],
+
+            "retrograde":
+                speed < 0,
+
+            "speed":
+                round(
+                    speed,
+                    6,
+                ),
+
+            "planet_fa":
+                PLANET_FA[name],
+
+            "name_fa":
+                PLANET_FA[name],
+
+            "symbol":
+                PLANET_SYMBOL[name],
         }
 
     return positions
@@ -368,13 +386,13 @@ def _calculate_transit_aspects(
             p1 = names[i]
             p2 = names[j]
 
-            lon1 = positions[
-                p1
-            ]["longitude"]
+            lon1 = positions[p1][
+                "longitude"
+            ]
 
-            lon2 = positions[
-                p2
-            ]["longitude"]
+            lon2 = positions[p2][
+                "longitude"
+            ]
 
             diff = _degree_difference(
                 lon1,
@@ -390,36 +408,44 @@ def _calculate_transit_aspects(
 
             results.append(
                 {
-                    "planet1": p1,
-                    "planet1_fa": PLANET_FA[p1],
-                    "planet1_symbol": PLANET_SYMBOL[p1],
+                    "planet1":
+                        p1,
 
-                    "planet2": p2,
-                    "planet2_fa": PLANET_FA[p2],
-                    "planet2_symbol": PLANET_SYMBOL[p2],
+                    "planet1_fa":
+                        PLANET_FA[p1],
 
-                    "aspect": aspect[
-                        "aspect"
-                    ],
-                    "aspect_fa": aspect[
-                        "aspect_fa"
-                    ],
-                    "aspect_symbol": aspect[
-                        "aspect_symbol"
-                    ],
+                    "planet1_symbol":
+                        PLANET_SYMBOL[p1],
 
-                    "exact_diff": round(
-                        diff,
-                        4,
-                    ),
+                    "planet2":
+                        p2,
 
-                    "orb": aspect[
-                        "orb"
-                    ],
+                    "planet2_fa":
+                        PLANET_FA[p2],
 
-                    "weight": aspect[
-                        "weight"
-                    ],
+                    "planet2_symbol":
+                        PLANET_SYMBOL[p2],
+
+                    "aspect":
+                        aspect["aspect"],
+
+                    "aspect_fa":
+                        aspect["aspect_fa"],
+
+                    "aspect_symbol":
+                        aspect["aspect_symbol"],
+
+                    "exact_diff":
+                        round(
+                            diff,
+                            4,
+                        ),
+
+                    "orb":
+                        aspect["orb"],
+
+                    "weight":
+                        aspect["weight"],
                 }
             )
 
@@ -464,19 +490,25 @@ def _extract_natal_targets(
             continue
 
         targets[name] = {
-            "longitude": float(
-                longitude
-            ),
-            "target_type": "planet",
-            "house": data.get(
-                "house"
-            ),
-            "sign": data.get(
-                "sign"
-            ),
-            "sign_fa": data.get(
-                "sign_fa"
-            ),
+            "longitude":
+                float(longitude),
+
+            "target_type":
+                "planet",
+
+            "house":
+                data.get("house"),
+
+            "house_name_fa":
+                data.get(
+                    "house_name_fa"
+                ),
+
+            "sign":
+                data.get("sign"),
+
+            "sign_fa":
+                data.get("sign_fa"),
         }
 
     nodes = natal_chart.get(
@@ -500,19 +532,25 @@ def _extract_natal_targets(
             continue
 
         targets[name] = {
-            "longitude": float(
-                longitude
-            ),
-            "target_type": "node",
-            "house": data.get(
-                "house"
-            ),
-            "sign": data.get(
-                "sign"
-            ),
-            "sign_fa": data.get(
-                "sign_fa"
-            ),
+            "longitude":
+                float(longitude),
+
+            "target_type":
+                "node",
+
+            "house":
+                data.get("house"),
+
+            "house_name_fa":
+                data.get(
+                    "house_name_fa"
+                ),
+
+            "sign":
+                data.get("sign"),
+
+            "sign_fa":
+                data.get("sign_fa"),
         }
 
     angles = natal_chart.get(
@@ -520,7 +558,10 @@ def _extract_natal_targets(
         {}
     )
 
+    # =====================================================
     # ASC
+    # =====================================================
+
     asc = angles.get(
         "ascendant"
     )
@@ -538,16 +579,29 @@ def _extract_natal_targets(
     if asc_lon is not None:
 
         targets["ASC"] = {
-            "longitude": float(
-                asc_lon
-            ),
-            "target_type": "angle",
-            "house": 1,
-            "sign": None,
-            "sign_fa": None,
+            "longitude":
+                float(asc_lon),
+
+            "target_type":
+                "angle",
+
+            "house":
+                1,
+
+            "house_name_fa":
+                "خانه اول",
+
+            "sign":
+                None,
+
+            "sign_fa":
+                None,
         }
 
+    # =====================================================
     # MC
+    # =====================================================
+
     mc = angles.get(
         "mc"
     )
@@ -565,13 +619,23 @@ def _extract_natal_targets(
     if mc_lon is not None:
 
         targets["MC"] = {
-            "longitude": float(
-                mc_lon
-            ),
-            "target_type": "angle",
-            "house": 10,
-            "sign": None,
-            "sign_fa": None,
+            "longitude":
+                float(mc_lon),
+
+            "target_type":
+                "angle",
+
+            "house":
+                10,
+
+            "house_name_fa":
+                "خانه دهم",
+
+            "sign":
+                None,
+
+            "sign_fa":
+                None,
         }
 
     return targets
@@ -626,8 +690,6 @@ def _calculate_natal_transits(
                 "weight"
             ]
 
-            # Sun, Moon, ASC and MC
-            # are treated as highly personal.
             if natal_name in {
                 "Sun",
                 "Moon",
@@ -636,8 +698,6 @@ def _calculate_natal_transits(
             }:
                 importance += 2
 
-            # Slow planets tend to produce
-            # longer-lasting transits.
             if transit_name in {
                 "Jupiter",
                 "Saturn",
@@ -647,8 +707,47 @@ def _calculate_natal_transits(
             }:
                 importance += 1
 
+            natal_fa = PLANET_FA.get(
+                natal_name,
+                natal_name,
+            )
+
+            house = natal_data.get(
+                "house"
+            )
+
+            house_name_fa = natal_data.get(
+                "house_name_fa"
+            )
+
+            # اگر natal.py نام خانه را
+            # ارسال نکرده باشد، حداقل
+            # نام خانه عددی ساخته شود.
+            if not house_name_fa and house is not None:
+
+                try:
+                    house_number = int(
+                        house
+                    )
+
+                    house_name_fa = (
+                        f"خانه {house_number}"
+                    )
+
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    house_name_fa = str(
+                        house
+                    )
+
             results.append(
                 {
+                    # -----------------------------
+                    # Transit
+                    # -----------------------------
+
                     "transit_planet":
                         transit_name,
 
@@ -662,14 +761,19 @@ def _calculate_natal_transits(
                             transit_name
                         ],
 
+                    # -----------------------------
+                    # Natal target
+                    # -----------------------------
+
                     "natal_target":
                         natal_name,
 
                     "natal_target_fa":
-                        PLANET_FA.get(
-                            natal_name,
-                            natal_name,
-                        ),
+                        natal_fa,
+
+                    # کلیدهای مورد انتظار Frontend
+                    "natal_planet_fa":
+                        natal_fa,
 
                     "natal_symbol":
                         PLANET_SYMBOL.get(
@@ -682,20 +786,18 @@ def _calculate_natal_transits(
                             "target_type"
                         ],
 
+                    # -----------------------------
+                    # Aspect
+                    # -----------------------------
+
                     "aspect":
-                        aspect[
-                            "aspect"
-                        ],
+                        aspect["aspect"],
 
                     "aspect_fa":
-                        aspect[
-                            "aspect_fa"
-                        ],
+                        aspect["aspect_fa"],
 
                     "aspect_symbol":
-                        aspect[
-                            "aspect_symbol"
-                        ],
+                        aspect["aspect_symbol"],
 
                     "exact_diff":
                         round(
@@ -704,12 +806,14 @@ def _calculate_natal_transits(
                         ),
 
                     "orb":
-                        aspect[
-                            "orb"
-                        ],
+                        aspect["orb"],
 
                     "importance":
                         importance,
+
+                    # -----------------------------
+                    # Transit position
+                    # -----------------------------
 
                     "transit_position":
                         transit_data[
@@ -726,6 +830,10 @@ def _calculate_natal_transits(
                             "sign_fa"
                         ],
 
+                    # -----------------------------
+                    # Natal position
+                    # -----------------------------
+
                     "natal_sign":
                         natal_data.get(
                             "sign"
@@ -736,10 +844,16 @@ def _calculate_natal_transits(
                             "sign_fa"
                         ),
 
+                    # کلیدهای مورد انتظار Frontend
                     "natal_house":
-                        natal_data.get(
-                            "house"
-                        ),
+                        house,
+
+                    "natal_house_name_fa":
+                        house_name_fa,
+
+                    # -----------------------------
+                    # Transit status
+                    # -----------------------------
 
                     "transit_retrograde":
                         transit_data.get(
@@ -853,13 +967,6 @@ def _interpret_natal_transit(
 def get_full_transit_analysis(
     natal_chart: dict | None = None
 ):
-    """
-    Compatibility function for advisor.py.
-
-    Returns complete current-sky analysis,
-    including transit-to-transit and
-    transit-to-natal aspects.
-    """
 
     now = datetime.now(
         timezone.utc
@@ -926,16 +1033,28 @@ def get_full_transit_analysis(
                 repr(exc),
             )
 
+    # =====================================================
+    # ساختار کامل و هماهنگ API
+    # =====================================================
+
     return {
         "status": "ok",
 
         "generated_at":
             now.isoformat(),
 
+        # نام قدیمی برای سازگاری
         "positions":
             positions,
 
         "transits":
+            transit_aspects,
+
+        # نام‌های مورد انتظار Frontend
+        "current_positions":
+            positions,
+
+        "transit_aspects":
             transit_aspects,
 
         "natal_transits":
