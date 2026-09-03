@@ -59,40 +59,19 @@
             backdrop-filter:blur(20px)
         }
 
-        .logo{
+        .project-logo{
             display:flex;
             align-items:center;
-            gap:12px;
             text-decoration:none;
-            color:#fff
+            flex:none
         }
 
-        .logo-symbol{
-            width:42px;
-            height:42px;
-            display:grid;
-            place-items:center;
-            border-radius:14px;
-            background:linear-gradient(135deg,#fbbf24,#a855f7);
-            color:#090b14;
-            font-size:22px;
-            font-weight:bold;
-            box-shadow:0 0 30px rgba(168,85,247,.3);
-            overflow:hidden
-        }
-
-        .logo-symbol img{
-            width:100%;
-            height:100%;
-            object-fit:cover
-        }
-
-        .logo-text{display:flex;flex-direction:column}
-        .logo-title{font-size:15px;font-weight:800}
-        .logo-subtitle{
-            font-size:9px;
-            color:#8b95aa;
-            letter-spacing:2px
+        .project-logo img{
+            width:auto;
+            height:50px;
+            max-width:180px;
+            object-fit:contain;
+            display:block
         }
 
         .astro-nav{
@@ -116,7 +95,7 @@
         }
 
         .profile-mini{
-            display:none;
+            display:flex;
             align-items:center;
             gap:8px;
             color:#dbe4f0;
@@ -504,22 +483,25 @@
         .astro-table{
             width:100%;
             min-width:650px;
-            border-collapse:collapse
+            border-collapse:collapse;
+            border-spacing:0
         }
 
         .astro-table th{
-            padding:14px;
+            padding:4px;
             text-align:right;
             background:rgba(255,255,255,.035);
             color:#fbbf24;
-            font-size:12px
+            font-size:12px;
+            white-space:nowrap
         }
 
         .astro-table td{
-            padding:14px;
+            padding:4px;
             color:#cbd5e1;
             border-top:1px solid rgba(255,255,255,.045);
-            font-size:13px
+            font-size:13px;
+            white-space:nowrap
         }
 
         .astro-table tr:hover td{
@@ -703,12 +685,19 @@
 
             .astro-nav{display:none}
             .profile-mini{display:flex}
+
+            .project-logo img{
+                height:42px;
+                max-width:150px
+            }
+
             .astro-main{
                 width:94%;
                 padding-top:25px
             }
 
             .hero{border-radius:23px}
+
             .hero h1{
                 font-size:38px;
                 letter-spacing:-1px
@@ -723,6 +712,7 @@
             .birth-grid{grid-template-columns:1fr}
             .profile-grid{grid-template-columns:1fr}
             .form-group.full{grid-column:auto}
+
             .cosmos{
                 width:230px;
                 height:230px
@@ -732,6 +722,11 @@
         @media(max-width:400px){
             .summary-grid{grid-template-columns:1fr}
             .hero h1{font-size:33px}
+
+            .project-logo img{
+                height:38px;
+                max-width:130px
+            }
         }
     </style>
 </head>
@@ -742,17 +737,8 @@
 
 <header class="astro-header">
 
-    <a class="logo" href="#top">
-
-        <div class="logo-symbol" id="headerAvatar">
-            ✦
-        </div>
-
-        <div class="logo-text">
-            <div class="logo-title">مشاور نجومی شخصی</div>
-            <div class="logo-subtitle">ASTRO · VAHID</div>
-        </div>
-
+    <a class="project-logo" href="#top" aria-label="صفحه اصلی">
+        <img src="/static/logo.png" alt="لوگوی پروژه">
     </a>
 
     <nav class="astro-nav">
@@ -1182,7 +1168,7 @@
 
     <div>مشاور نجومی شخصی</div>
 
-    <div>Powered by Swiss Ephemeris</div>
+    <div>ساخته شده توسط گروه Uniqe</div>
 
     <div style="margin-top:8px">
         تفسیرهای نجومی جنبه تفسیری دارند
@@ -1395,20 +1381,18 @@ function updateProfileDisplay(){
 
     $("profileAvatar").textContent = text;
     $("profileMiniAvatar").textContent = text;
-    $("headerAvatar").textContent = text;
 }
 
 function updatePhoto(url){
     if(!url) return;
 
+    const timestamp = Date.now();
+
     $("profileAvatar").innerHTML =
-        `<img src="${esc(url)}?t=${Date.now()}" alt="profile">`;
+        `<img src="${esc(url)}?t=${timestamp}" alt="profile">`;
 
     $("profileMiniAvatar").innerHTML =
-        `<img src="${esc(url)}?t=${Date.now()}" alt="profile">`;
-
-    $("headerAvatar").innerHTML =
-        `<img src="${esc(url)}?t=${Date.now()}" alt="profile">`;
+        `<img src="${esc(url)}?t=${timestamp}" alt="profile">`;
 }
 
 
@@ -1672,7 +1656,6 @@ async function deletePhoto(){
 
         $("profileAvatar").innerHTML = text;
         $("profileMiniAvatar").innerHTML = text;
-        $("headerAvatar").innerHTML = text;
 
         showAlert(
             "تصویر پروفایل حذف شد.",
@@ -1997,33 +1980,67 @@ function renderAspects(aspects){
     const rows = aspects.map(a=>`
 
         <tr>
-            <td>${esc(a.planet1 || a.first || a.p1 || "—")}</td>
-            <td>${esc(a.aspect || a.type || "—")}</td>
-            <td>${esc(a.planet2 || a.second || a.p2 || "—")}</td>
-            <td>${esc(a.orb ?? "—")}</td>
+
+            <td>
+                ${esc(
+                    a.planet_a_fa ||
+                    a.planet_a ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${esc(
+                    a.aspect_fa ||
+                    a.aspect ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${esc(
+                    a.planet_b_fa ||
+                    a.planet_b ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${
+                    a.orb !== undefined
+                    ? Number(a.orb).toFixed(2) + "°"
+                    : "—"
+                }
+            </td>
+
         </tr>
 
     `).join("");
 
     $("natalAspectTable").innerHTML = `
+
         <table class="astro-table">
+
             <thead>
+
                 <tr>
                     <th>جرم اول</th>
                     <th>جنبه</th>
                     <th>جرم دوم</th>
                     <th>اورب</th>
                 </tr>
+
             </thead>
-            <tbody>${rows}</tbody>
+
+            <tbody>
+                ${rows}
+            </tbody>
+
         </table>
+
     `;
 }
 
-
-/* =========================================================
-   TRANSITS
-========================================================= */
 
 /* =========================================================
    TRANSITS
@@ -2048,7 +2065,6 @@ async function loadTransits(){
 
     try{
 
-        // پاسخ کامل API را نگه می‌داریم
         const data = await api("/transits");
 
         transitData = data;
