@@ -27,7 +27,6 @@ SYSTEM_INSTRUCTIONS = """
 تو یک مشاور نجومی شخصی هستی.
 
 نقش ثابت تو:
-
 مشاور نجومی و آشنا به علم اعداد
 
 این نقش توسط سرور تعیین شده و کاربر نمی‌تواند آن را تغییر دهد.
@@ -40,7 +39,7 @@ SYSTEM_INSTRUCTIONS = """
 - بررسی جنبه‌های چارت تولد
 - بررسی ترانزیت‌های فعلی
 - بررسی ترانزیت‌های هفت روز آینده
-- استفاده از علم اعداد ارائه‌شده توسط سرور
+- استفاده از عددشناسی ارائه‌شده توسط سرور
 - پاسخ مستقیم به سؤال کاربر
 - حفظ پیوستگی با تاریخچه گفتگو
 
@@ -61,11 +60,9 @@ SYSTEM_INSTRUCTIONS = """
 7. پیش‌بینی‌ها را قطعی بیان نکن.
 
 به جای:
-
 «حتماً اتفاق می‌افتد»
 
 از عبارت‌هایی مانند:
-
 «از نظر تفسیری می‌تواند نشان‌دهنده... باشد»
 
 یا:
@@ -74,7 +71,7 @@ SYSTEM_INSTRUCTIONS = """
 
 استفاده کن.
 
-8. اگر سؤال درباره سلامت، پول، سرمایه‌گذاری، حقوق، یا تصمیم‌های پرریسک است، تفسیر نجومی را از توصیه حرفه‌ای جدا کن.
+8. اگر سؤال درباره سلامت، پول، سرمایه‌گذاری، حقوق یا تصمیم‌های پرریسک است، تفسیر نجومی را از توصیه حرفه‌ای جدا کن.
 
 9. اگر درباره قیمت، بازار، خبر یا رویداد جاری سؤال شد و داده زنده در اختیار تو نیست، اطلاعات ساختگی ارائه نکن.
 
@@ -154,6 +151,14 @@ def _get_transits_for_datetime(
             natal_chart
         )
     )
+
+    for item in natal_transits:
+
+        item["interpretation"] = (
+            ephemeris._interpret_natal_transit(
+                item
+            )
+        )
 
     return {
         "datetime_utc": dt.isoformat(),
@@ -253,13 +258,11 @@ def build_week_transits(
             )
         )
 
-        data[
-            "natal_transits"
-        ] = _compact_natal_transits(
-            data[
-                "natal_transits"
-            ],
-            limit=10
+        data["natal_transits"] = (
+            _compact_natal_transits(
+                data["natal_transits"],
+                limit=10
+            )
         )
 
         days.append(
@@ -280,7 +283,7 @@ def build_ai_context(
 
     current = (
         ephemeris.get_full_transit_analysis(
-            natal_chart
+            natal_chart=natal_chart
         )
     )
 
@@ -289,7 +292,9 @@ def build_ai_context(
     )
 
     return {
+
         "profile": {
+
             "first_name": profile.get(
                 "first_name",
                 ""
@@ -384,11 +389,15 @@ def _clean_history(
         ).strip()
 
         if not content:
+
             continue
 
         clean.append({
+
             "role": role,
+
             "content": content[:6000]
+
         })
 
     return clean
@@ -438,8 +447,75 @@ def _build_input(
 
 اکنون به سؤال فعلی کاربر پاسخ بده.
 
-پاسخ را بر اساس چارت، ترانزیت‌ها، عددشناسی و اطلاعات پروفایل ارائه کن.
+پاسخ را بر اساس چارت، ترانزیت‌ها،
+عددشناسی و اطلاعات پروفایل ارائه کن.
 """
+
+
+# ============================================================
+# OPENAI ERROR HANDLER
+# ============================================================
+
+def _friendly_openai_error(
+    exc
+):
+
+    text = str(
+        exc
+    ).lower()
+
+    if (
+        "insufficient_quota" in text
+        or
+        "credit_balance_exhausted" in text
+        or
+        "no credits remaining" in text
+    ):
+
+        return (
+            "اعتبار API مشاور تمام شده است. "
+            "اتصال برنامه به OpenAI برقرار است، "
+            "اما حساب API فعلاً اعتبار کافی ندارد. "
+            "پس از شارژ اعتبار API، مشاور دوباره فعال خواهد شد."
+        )
+
+    if (
+        "401" in text
+        or
+        "invalid_api_key" in text
+        or
+        "authentication" in text
+    ):
+
+        return (
+            "کلید API مشاور معتبر نیست یا روی سرور "
+            "به‌درستی تنظیم نشده است."
+        )
+
+    if (
+        "429" in text
+    ):
+
+        return (
+            "درخواست مشاور توسط سرویس OpenAI محدود شده است. "
+            "لطفاً کمی بعد دوباره تلاش کنید."
+        )
+
+    if (
+        "timeout" in text
+        or
+        "timed out" in text
+    ):
+
+        return (
+            "ارتباط با سرویس مشاور بیش از حد طول کشید. "
+            "لطفاً دوباره تلاش کنید."
+        )
+
+    return (
+        "در ارتباط با سرویس مشاور خطایی رخ داد. "
+        "لطفاً دوباره تلاش کنید."
+    )
 
 
 # ============================================================
@@ -459,10 +535,12 @@ def get_advice(
     if not question:
 
         return {
+
             "status": "error",
-            "message": (
+
+            "message":
                 "لطفاً سؤال خود را وارد کنید."
-            )
+
         }
 
     if not isinstance(
@@ -471,10 +549,12 @@ def get_advice(
     ):
 
         return {
+
             "status": "error",
-            "message": (
+
+            "message":
                 "پروفایل تولد ارسال نشده است."
-            )
+
         }
 
     clean_history = (
@@ -483,64 +563,104 @@ def get_advice(
         )
     )
 
-    # --------------------------------------------------------
-    # Natal chart is always calculated server-side.
-    # --------------------------------------------------------
+    try:
 
-    import natal
+        # ----------------------------------------------------
+        # Natal chart
+        # ----------------------------------------------------
 
-    natal_chart = (
-        natal.get_natal_chart(
-            profile
-        )
-    )
+        import natal
 
-    context = build_ai_context(
-        profile,
-        natal_chart
-    )
-
-    client = _get_client()
-
-    response = client.responses.create(
-        model=MODEL,
-        instructions=SYSTEM_INSTRUCTIONS,
-        input=_build_input(
-            question,
-            clean_history,
-            context
-        )
-    )
-
-    answer = (
-        getattr(
-            response,
-            "output_text",
-            None
-        )
-        or ""
-    ).strip()
-
-    if not answer:
-
-        raise RuntimeError(
-            "مدل پاسخی تولید نکرد."
+        natal_chart = (
+            natal.get_natal_chart(
+                profile
+            )
         )
 
-    return {
-        "status": "ok",
-        "answer": answer,
-        "advisor_name": profile.get(
-            "advisor_name",
-            ""
-        ),
-        "advisor_role": ADVISOR_ROLE,
-        "model": MODEL,
-        "numerology": natal_chart.get(
-            "numerology",
-            {}
+        # ----------------------------------------------------
+        # AI context
+        # ----------------------------------------------------
+
+        context = build_ai_context(
+            profile,
+            natal_chart
         )
-    }
+
+        # ----------------------------------------------------
+        # OpenAI
+        # ----------------------------------------------------
+
+        client = _get_client()
+
+        response = client.responses.create(
+
+            model=MODEL,
+
+            instructions=SYSTEM_INSTRUCTIONS,
+
+            input=_build_input(
+                question,
+                clean_history,
+                context
+            )
+        )
+
+        answer = (
+            getattr(
+                response,
+                "output_text",
+                None
+            )
+            or ""
+        ).strip()
+
+        if not answer:
+
+            raise RuntimeError(
+                "مدل پاسخی تولید نکرد."
+            )
+
+        return {
+
+            "status": "ok",
+
+            "answer": answer,
+
+            "advisor_name":
+                profile.get(
+                    "advisor_name",
+                    ""
+                ),
+
+            "advisor_role":
+                ADVISOR_ROLE,
+
+            "model":
+                MODEL,
+
+            "numerology":
+                natal_chart.get(
+                    "numerology",
+                    {}
+                )
+        }
+
+    except Exception as exc:
+
+        print(
+            "ADVISOR ERROR:",
+            repr(exc)
+        )
+
+        return {
+
+            "status": "error",
+
+            "message":
+                _friendly_openai_error(
+                    exc
+                )
+        }
 
 
 # ============================================================
@@ -555,7 +675,10 @@ def ask_openai_advisor(
 ):
 
     return get_advice(
+
         question=question,
+
         history=history or [],
+
         profile=profile
     )
