@@ -2065,64 +2065,171 @@ async function loadTransits(){
     }
 }
 
+function renderTransits(data) {
+    const positionsBox = document.getElementById("transitPositions");
+    const aspectsBox = document.getElementById("transitAspects");
+    const natalBox = document.getElementById("natalTransits");
 
-function renderTransits(data){
-
-    if(!data) return;
-
-    const positions =
-        data.positions ||
-        data.transit_positions ||
-        data.planets ||
-        {};
-
-    const cards = [];
-
-    for(const [key,p] of Object.entries(positions)){
-
-        cards.push(`
-            <div class="transit-card">
-
-                <div class="transit-symbol">
-                    ${esc(p?.symbol || planetSymbol(key))}
+    if (!data || data.status !== "ok") {
+        if (positionsBox) {
+            positionsBox.innerHTML = `
+                <div class="empty-state">
+                    اطلاعات ترانزیت موجود نیست.
                 </div>
+            `;
+        }
 
-                <div class="transit-name">
-                    ${esc(p?.name_fa || p?.name || key)}
-                </div>
+        if (aspectsBox) {
+            aspectsBox.innerHTML = "";
+        }
 
-                <div class="transit-position">
-                    ${esc(positionText(p))}
-                </div>
+        if (natalBox) {
+            natalBox.innerHTML = "";
+        }
 
-                ${
-                    p?.retrograde
-                    ? `<div class="retro">℞ برگشتی</div>`
-                    : ""
-                }
-
-            </div>
-        `);
+        return;
     }
 
-    $("transitPositions").innerHTML =
-        cards.length
-            ? cards.join("")
-            : `<div class="loading">اطلاعات ترانزیت موجود نیست.</div>`;
+    // -----------------------------
+    // موقعیت فعلی سیارات
+    // -----------------------------
+    const positions = data.positions || data.current_positions || {};
 
-    renderTransitAspects(
-        data.aspects ||
-        data.transit_aspects ||
-        []
-    );
+    if (positionsBox) {
+        const entries = Object.values(positions);
 
-    renderNatalTransits(
-        data.natal_transits ||
-        data.transits_to_natal ||
-        data.natal_aspects ||
-        []
-    );
-}
+        if (!entries.length) {
+            positionsBox.innerHTML = `
+                <div class="empty-state">
+                    موقعیت سیارات موجود نیست.
+                </div>
+            `;
+        } else {
+            positionsBox.innerHTML = entries.map(p => `
+                <div class="planet-row">
+                    <div class="planet-name">
+                        <span class="planet-symbol">${p.symbol || ""}</span>
+                        ${p.name_fa || p.planet_fa || "—"}
+                    </div>
+
+                    <div class="planet-position">
+                        ${p.formatted || "—"}
+                    </div>
+
+                    <div class="planet-speed">
+                        ${p.retrograde ? "℞ برگشتی" : "مستقیم"}
+                    </div>
+                </div>
+            `).join("");
+        }
+    }
+
+    // -----------------------------
+    // جنبه‌های فعلی بین سیارات
+    // -----------------------------
+    const aspects = data.transit_aspects || data.transits || [];
+
+    if (aspectsBox) {
+        if (!aspects.length) {
+            aspectsBox.innerHTML = `
+                <div class="empty-state">
+                    جنبه‌ای در حال حاضر موجود نیست.
+                </div>
+            `;
+        } else {
+            aspectsBox.innerHTML = aspects.map(a => `
+                <div class="aspect-card">
+                    <div class="aspect-main">
+                        <span class="aspect-planet">
+                            ${a.planet1_symbol || ""}
+                            ${a.planet1_fa || a.planet1 || "—"}
+                        </span>
+
+                        <span class="aspect-symbol">
+                            ${a.aspect_symbol || ""}
+                        </span>
+
+                        <span class="aspect-planet">
+                            ${a.planet2_symbol || ""}
+                            ${a.planet2_fa || a.planet2 || "—"}
+                        </span>
+                    </div>
+
+                    <div class="aspect-info">
+                        ${a.aspect_fa || a.aspect || "—"}
+                        · اورب ${Number(a.orb || 0).toFixed(2)}°
+                    </div>
+                </div>
+            `).join("");
+        }
+    }
+
+    // -----------------------------
+    // ترانزیت‌های فعلی روی چارت تولد
+    // -----------------------------
+    const natalTransits = data.natal_transits || [];
+
+    if (natalBox) {
+        if (!natalTransits.length) {
+            natalBox.innerHTML = `
+                <div class="empty-state">
+                    در حال حاضر ترانزیت مهمی نسبت به سیارات تولد شناسایی نشده است.
+                </div>
+            `;
+        } else {
+            natalBox.innerHTML = natalTransits.map(t => `
+                <div class="aspect-card">
+                    <div class="aspect-main">
+                        <span class="aspect-planet">
+                            ${t.transit_planet_fa || t.planet1_fa || t.transit_planet || "—"}
+                        </span>
+
+                        <span class="aspect-symbol">
+                            ${t.aspect_symbol || ""}
+                        </span>
+
+                        <span class="aspect-planet">
+                            ${t.natal_planet_fa || t.planet2_fa || t.natal_planet || "—"}
+                        </span>
+                    </div>
+
+                    <div class="aspect-info">
+                        ${t.aspect_fa || t.aspect || "—"}
+                        ${t.orb !== undefined
+                            ? ` · اورب ${Number(t.orb).toFixed(2)}°`
+                            : ""}
+                    </div>
+                </div>
+            `).join("");
+        }
+    }
+
+    // -----------------------------
+    // خلاصه
+    // -----------------------------
+    const summary = data.summary || {};
+
+    const summaryBox = document.getElementById("transitSummary");
+
+    if (summaryBox) {
+        summaryBox.innerHTML = `
+            <div class="summary-item">
+                <strong>${summary.planet_count ?? 0}</strong>
+                <span>سیاره</span>
+            </div>
+
+            <div class="summary-item">
+                <strong>${summary.transit_aspect_count ?? 0}</strong>
+                <span>جنبه فعال</span>
+            </div>
+
+            <div class="summary-item">
+                <strong>${summary.natal_transit_count ?? 0}</strong>
+                <span>ترانزیت روی چارت تولد</span>
+            </div>
+        `;
+    }
+} ده
 
 
 function renderTransitAspects(aspects){
