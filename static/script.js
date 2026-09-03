@@ -1,1752 +1,1275 @@
-document.addEventListener("DOMContentLoaded", () => {
+/* =========================================================
+   ASTRO TRANSITS WEB
+   Frontend Controller
+   Compatible with current /natal and /analysis API
+   ========================================================= */
 
-    // =========================================================
-    // GLOBAL STATE
-    // =========================================================
+"use strict";
 
-    let advisorHistory = [];
-    let isAdvisorBusy = false;
+/* ---------------------------------------------------------
+   Global state
+--------------------------------------------------------- */
 
+let natalData = null;
+let analysisData = null;
 
-    // =========================================================
-    // DOM
-    // =========================================================
-
-    const questionInput =
-        document.getElementById("questionInput");
-
-    const advisorBox =
-        document.getElementById("advisorBox");
+let advisorHistory = [];
 
 
-    // =========================================================
-    // HELPERS
-    // =========================================================
+/* ---------------------------------------------------------
+   Generic helpers
+--------------------------------------------------------- */
 
-    function escapeHtml(value) {
+function $(id) {
+    return document.getElementById(id);
+}
 
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
+function setText(id, value) {
+    const el = $(id);
+    if (el) {
+        el.textContent =
+            value === undefined ||
+            value === null ||
+            value === ""
+                ? "—"
+                : String(value);
     }
+}
 
+function escapeHtml(value) {
+    if (value === undefined || value === null) return "";
 
-    function safeArray(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-        return Array.isArray(value)
-            ? value
-            : [];
-    }
+function safeObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+}
 
+function safeArray(value) {
+    return Array.isArray(value) ? value : [];
+}
 
-    function safeObject(value) {
+function formatNumber(value, digits = 2) {
+    const n = Number(value);
 
-        return value &&
-               typeof value === "object"
-            ? value
-            : {};
-    }
-
-
-    function firstValue(obj, keys, fallback = "—") {
-
-        obj = safeObject(obj);
-
-        for (const key of keys) {
-
-            if (
-                obj[key] !== undefined &&
-                obj[key] !== null &&
-                obj[key] !== ""
-            ) {
-
-                return obj[key];
-            }
-        }
-
-        return fallback;
-    }
-
-
-    function formatNumber(value, digits = 2) {
-
-        const n = Number(value);
-
-        if (!Number.isFinite(n)) {
-            return "—";
-        }
-
-        return n.toFixed(digits);
-    }
-
-
-    function formatOrb(value) {
-
-        const n = Number(value);
-
-        if (!Number.isFinite(n)) {
-            return "—";
-        }
-
-        return `${n.toFixed(2)}°`;
-    }
-
-
-    function formatPosition(item) {
-
-        item = safeObject(item);
-
-        if (item.formatted) {
-            return item.formatted;
-        }
-
-        const sign =
-            firstValue(
-                item,
-                ["sign_fa", "sign"],
-                ""
-            );
-
-        const degree =
-            firstValue(
-                item,
-                ["degree"],
-                ""
-            );
-
-        const minute =
-            firstValue(
-                item,
-                ["minute"],
-                ""
-            );
-
-        const second =
-            firstValue(
-                item,
-                ["second"],
-                ""
-            );
-
-        if (sign) {
-
-            let result = `${degree}°`;
-
-            if (minute !== "") {
-                result += ` ${minute}′`;
-            }
-
-            if (second !== "") {
-                result += ` ${second}″`;
-            }
-
-            result += ` ${sign}`;
-
-            return result;
-        }
-
-        if (item.longitude !== undefined) {
-
-            return `${formatNumber(item.longitude, 2)}°`;
-        }
-
+    if (!Number.isFinite(n)) {
         return "—";
     }
 
+    return n.toFixed(digits);
+}
 
-    function planetName(item) {
+function formatOrb(value) {
+    const n = Number(value);
 
-        return firstValue(
-            item,
-            [
-                "name_fa",
-                "planet_fa",
-                "natal_planet_fa",
-                "target_fa",
-                "planet"
-            ],
-            "—"
-        );
+    if (!Number.isFinite(n)) {
+        return "—";
     }
 
+    return `${n.toFixed(2)}°`;
+}
 
-    function planetSymbol(item) {
+function showLoading(id, text = "در حال دریافت اطلاعات...") {
+    const el = $(id);
 
-        return firstValue(
-            item,
-            ["symbol"],
-            "🪐"
-        );
-    }
-
-
-    function aspectName(item) {
-
-        return firstValue(
-            item,
-            [
-                "aspect_fa",
-                "aspect_name_fa",
-                "aspect",
-                "name_fa"
-            ],
-            "—"
-        );
-    }
-
-
-    function houseName(item) {
-
-        return firstValue(
-            item,
-            [
-                "house_name_fa",
-                "natal_house_name_fa",
-                "house_fa"
-            ],
-            ""
-        );
-    }
-
-
-    function showError(elementId, message) {
-
-        const el =
-            document.getElementById(elementId);
-
-        if (!el) {
-            return;
-        }
-
+    if (el) {
         el.innerHTML = `
-            <div class="loading">
-                ⚠️ ${escapeHtml(message)}
+            <div class="loading-state">
+                ${escapeHtml(text)}
             </div>
         `;
     }
+}
 
+function showError(id, text) {
+    const el = $(id);
 
-    function setLoading(elementId, message) {
-
-        const el =
-            document.getElementById(elementId);
-
-        if (!el) {
-            return;
-        }
-
+    if (el) {
         el.innerHTML = `
-            <div class="loading">
-                ${escapeHtml(message)}
+            <div class="error-state">
+                ${escapeHtml(text)}
             </div>
         `;
     }
+}
 
 
-    // =========================================================
-    // FETCH WITH TIMEOUT
-    // =========================================================
+/* ---------------------------------------------------------
+   Fetch
+--------------------------------------------------------- */
 
-    async function fetchJson(
-        url,
-        options = {},
-        timeout = 30000
-    ) {
+async function fetchJson(url, options = {}) {
+    const controller = new AbortController();
 
-        const controller =
-            new AbortController();
+    const timeout = setTimeout(() => {
+        controller.abort();
+    }, options.timeout || 30000);
 
-        const timer =
-            setTimeout(
-                () => controller.abort(),
-                timeout
-            );
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+                "Accept": "application/json",
+                ...(options.headers || {})
+            }
+        });
+
+        const text = await response.text();
+
+        let data;
 
         try {
-
-            const response =
-                await fetch(
-                    url,
-                    {
-                        ...options,
-                        signal:
-                            controller.signal
-                    }
-                );
-
-            const text =
-                await response.text();
-
-            let data;
-
-            try {
-
-                data =
-                    text
-                        ? JSON.parse(text)
-                        : {};
-
-            } catch {
-
-                throw new Error(
-                    `پاسخ نامعتبر از ${url}`
-                );
-            }
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.message ||
-                    `خطای HTTP ${response.status}`
-                );
-            }
-
-            return data;
-
-        } catch (error) {
-
-            if (
-                error.name ===
-                "AbortError"
-            ) {
-
-                throw new Error(
-                    "زمان دریافت پاسخ به پایان رسید."
-                );
-            }
-
-            throw error;
-
-        } finally {
-
-            clearTimeout(timer);
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            throw new Error("پاسخ سرور JSON معتبر نیست.");
         }
+
+        if (!response.ok) {
+            throw new Error(
+                data?.message ||
+                data?.detail ||
+                `خطای سرور: ${response.status}`
+            );
+        }
+
+        return data;
+
+    } catch (error) {
+
+        if (error.name === "AbortError") {
+            throw new Error("زمان دریافت اطلاعات به پایان رسید.");
+        }
+
+        throw error;
+
+    } finally {
+        clearTimeout(timeout);
     }
+}
 
 
-    // =========================================================
-    // NATAL CHART
-    // =========================================================
+/* =========================================================
+   NATAL CHART
+   ========================================================= */
 
-    async function loadNatal() {
+async function loadNatal() {
 
-        setLoading(
+    showLoading("planetTable", "در حال دریافت سیارات...");
+    showLoading("houseTable", "در حال دریافت خانه‌ها...");
+    showLoading("natalAspectTable", "در حال دریافت جنبه‌ها...");
+
+    try {
+
+        const data = await fetchJson("/natal");
+
+        natalData = data;
+
+        renderNatal(data);
+
+    } catch (error) {
+
+        console.error("Natal error:", error);
+
+        showError(
             "planetTable",
-            "در حال محاسبه سیارات..."
+            `خطا در دریافت چارت تولد: ${error.message}`
         );
 
-        setLoading(
+        showError(
             "houseTable",
-            "در حال محاسبه خانه‌ها..."
+            "اطلاعات خانه‌ها دریافت نشد."
         );
 
-        setLoading(
+        showError(
             "natalAspectTable",
-            "در حال محاسبه جنبه‌ها..."
-        );
-
-
-        try {
-
-            const data =
-                await fetchJson(
-                    "/natal"
-                );
-
-
-            const natal =
-                safeObject(
-                    data.natal || data
-                );
-
-
-            renderNatalSummary(
-                natal
-            );
-
-
-            renderPlanetTable(
-                natal
-            );
-
-
-            renderHouseTable(
-                natal
-            );
-
-
-            renderNatalAspectTable(
-                natal
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Natal error:",
-                error
-            );
-
-
-            showError(
-                "planetTable",
-                `خطا در دریافت چارت تولد: ${error.message}`
-            );
-
-            showError(
-                "houseTable",
-                "اطلاعات خانه‌ها دریافت نشد."
-            );
-
-            showError(
-                "natalAspectTable",
-                "اطلاعات جنبه‌های تولد دریافت نشد."
-            );
-        }
-    }
-
-
-    function renderNatalSummary(natal) {
-
-        const planets =
-            safeArray(
-                natal.planets ||
-                natal.positions
-            );
-
-
-        const findPlanet =
-            (names) =>
-                planets.find(
-                    p =>
-                        names.includes(
-                            String(
-                                firstValue(
-                                    p,
-                                    [
-                                        "planet",
-                                        "name",
-                                        "name_en"
-                                    ],
-                                    ""
-                                )
-                            ).toLowerCase()
-                        )
-                );
-
-
-        let sun =
-            findPlanet(
-                ["sun", "خورشید"]
-            );
-
-        let moon =
-            findPlanet(
-                ["moon", "ماه"]
-            );
-
-
-        // fallback by common fields
-        if (!sun) {
-
-            sun =
-                planets.find(
-                    p =>
-                        String(
-                            planetName(p)
-                        ).includes("خورشید")
-                );
-        }
-
-
-        if (!moon) {
-
-            moon =
-                planets.find(
-                    p =>
-                        String(
-                            planetName(p)
-                        ).includes("ماه")
-                );
-        }
-
-
-        const asc =
-            firstValue(
-                natal,
-                [
-                    "ascendant",
-                    "asc",
-                    "ASC"
-                ],
-                null
-            );
-
-
-        const mc =
-            firstValue(
-                natal,
-                [
-                    "mc",
-                    "MC",
-                    "midheaven"
-                ],
-                null
-            );
-
-
-        setText(
-            "sunPosition",
-            sun
-                ? formatPosition(sun)
-                : firstValue(
-                    natal,
-                    ["sun_position"],
-                    "—"
-                )
-        );
-
-
-        setText(
-            "moonPosition",
-            moon
-                ? formatPosition(moon)
-                : firstValue(
-                    natal,
-                    ["moon_position"],
-                    "—"
-                )
-        );
-
-
-        setText(
-            "ascPosition",
-            formatPosition(
-                typeof asc === "object"
-                    ? asc
-                    : {
-                        formatted: asc
-                    }
-            )
-        );
-
-
-        setText(
-            "mcPosition",
-            formatPosition(
-                typeof mc === "object"
-                    ? mc
-                    : {
-                        formatted: mc
-                    }
-            )
+            "اطلاعات جنبه‌ها دریافت نشد."
         );
     }
+}
 
 
-    function setText(id, value) {
+/* ---------------------------------------------------------
+   Render natal
+--------------------------------------------------------- */
 
-        const el =
-            document.getElementById(id);
+function renderNatal(data) {
 
-        if (el) {
-            el.textContent =
-                value ?? "—";
-        }
-    }
+    const birth = safeObject(data.birth_data);
+    const angles = safeObject(data.angles);
 
+    const asc = safeObject(angles.ascendant);
+    const mc = safeObject(angles.mc);
 
-    // =========================================================
-    // PLANET TABLE
-    // =========================================================
+    /*
+       Summary
+    */
 
-    function renderPlanetTable(natal) {
+    const dateFa = birth.date_fa || "—";
+    const timeFa = birth.time_fa || "—";
 
-        const container =
-            document.getElementById(
-                "planetTable"
-            );
+    if ($("natalSummary")) {
+        $("natalSummary").innerHTML = `
+            <div>
+                <strong>تاریخ تولد:</strong>
+                ${escapeHtml(dateFa)}
+            </div>
 
-        if (!container) {
-            return;
-        }
+            <div>
+                <strong>ساعت:</strong>
+                ${escapeHtml(timeFa)}
+            </div>
 
+            <div>
+                <strong>زودیاک:</strong>
+                ${escapeHtml(data?.zodiac?.name_fa || "تروپیکال")}
+            </div>
 
-        let planets =
-            safeArray(
-                natal.planets ||
-                natal.positions
-            );
-
-
-        if (!planets.length) {
-
-            container.innerHTML = `
-                <div class="loading">
-                    اطلاعات سیارات پیدا نشد.
-                </div>
-            `;
-
-            return;
-        }
-
-
-        container.innerHTML = `
-
-            <table class="astro-table">
-
-                <thead>
-
-                    <tr>
-                        <th>جرم</th>
-                        <th>موقعیت</th>
-                        <th>خانه</th>
-                        <th>حرکت</th>
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${planets.map(
-                        planet => {
-
-                            const retrograde =
-                                planet.retrograde
-                                    ? "℞ پس‌رو"
-                                    : "مستقیم";
-
-                            const house =
-                                houseName(
-                                    planet
-                                ) ||
-                                firstValue(
-                                    planet,
-                                    [
-                                        "house",
-                                        "house_number"
-                                    ],
-                                    "—"
-                                );
-
-                            return `
-
-                                <tr>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            planetSymbol(planet)
-                                        )}
-                                        ${escapeHtml(
-                                            planetName(planet)
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            formatPosition(planet)
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            house
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            retrograde
-                                        )}
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join("")}
-
-                </tbody>
-
-            </table>
+            <div>
+                <strong>خانه‌ها:</strong>
+                ${escapeHtml(data?.house_system?.name_fa || "پلاسیدوس")}
+            </div>
         `;
     }
 
+    /*
+       Main angles
+    */
 
-    // =========================================================
-    // HOUSES
-    // =========================================================
+    setText(
+        "sunPosition",
+        data?.planets?.Sun?.formatted || "—"
+    );
 
-    function renderHouseTable(natal) {
+    setText(
+        "moonPosition",
+        data?.planets?.Moon?.formatted || "—"
+    );
 
-        const container =
-            document.getElementById(
-                "houseTable"
-            );
+    setText(
+        "ascPosition",
+        asc.formatted || "—"
+    );
 
-        if (!container) {
-            return;
-        }
+    setText(
+        "mcPosition",
+        mc.formatted || "—"
+    );
+
+    /*
+       Planets
+    */
+
+    renderPlanetTable(data);
+
+    /*
+       Houses
+    */
+
+    renderHouseTable(data);
+
+    /*
+       Natal aspects
+    */
+
+    renderNatalAspects(data);
+}
 
 
-        let houses =
-            safeArray(
-                natal.houses
-            );
+/* ---------------------------------------------------------
+   Planet table
+--------------------------------------------------------- */
 
+function renderPlanetTable(data) {
 
-        if (!houses.length) {
+    const container = $("planetTable");
 
-            container.innerHTML = `
-                <div class="loading">
-                    اطلاعات خانه‌ها پیدا نشد.
-                </div>
-            `;
+    if (!container) return;
 
-            return;
-        }
+    const planets = safeObject(data.planets);
+    const nodes = safeObject(data.nodes);
 
+    const allObjects = [
+        ...Object.entries(planets),
+        ...Object.entries(nodes)
+    ];
 
+    if (!allObjects.length) {
         container.innerHTML = `
+            <div class="empty-state">
+                اطلاعات سیارات پیدا نشد.
+            </div>
+        `;
 
-            <table class="astro-table">
+        return;
+    }
 
-                <thead>
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>جرم</th>
+                    <th>موقعیت</th>
+                    <th>خانه</th>
+                    <th>وضعیت</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-                    <tr>
-                        <th>خانه</th>
-                        <th>برج</th>
-                        <th>درجه</th>
-                    </tr>
+    for (const [key, planet] of allObjects) {
 
-                </thead>
+        const name =
+            planet.name_fa ||
+            key;
 
-                <tbody>
+        const position =
+            planet.formatted ||
+            "—";
 
-                    ${houses.map(
-                        (house, index) => {
+        const house =
+            planet.house_name_fa ||
+            (planet.house
+                ? `خانه ${planet.house}`
+                : "—");
 
-                            const number =
-                                firstValue(
-                                    house,
-                                    [
-                                        "house",
-                                        "number",
-                                        "index"
-                                    ],
-                                    index + 1
-                                );
+        const retrograde =
+            planet.retrograde
+                ? "رجعتی"
+                : "مستقیم";
 
-                            const sign =
-                                firstValue(
-                                    house,
-                                    [
-                                        "sign_fa",
-                                        "sign",
-                                        "name_fa"
-                                    ],
-                                    "—"
-                                );
+        html += `
+            <tr>
+                <td>
+                    <strong>
+                        ${escapeHtml(planet.symbol || "")}
+                        ${escapeHtml(name)}
+                    </strong>
+                </td>
 
-                            return `
+                <td>
+                    ${escapeHtml(position)}
+                </td>
 
-                                <tr>
+                <td>
+                    ${escapeHtml(house)}
+                </td>
 
-                                    <td>
-                                        خانه ${escapeHtml(
-                                            number
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            sign
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            formatPosition(
-                                                house
-                                            )
-                                        )}
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join("")}
-
-                </tbody>
-
-            </table>
+                <td>
+                    ${escapeHtml(retrograde)}
+                </td>
+            </tr>
         `;
     }
 
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
 
-    // =========================================================
-    // NATAL ASPECTS
-    // =========================================================
-
-    function renderNatalAspectTable(natal) {
-
-        const container =
-            document.getElementById(
-                "natalAspectTable"
-            );
-
-        if (!container) {
-            return;
-        }
+    container.innerHTML = html;
+}
 
 
-        const aspects =
-            safeArray(
-                natal.aspects
-            );
+/* ---------------------------------------------------------
+   Houses
+--------------------------------------------------------- */
 
+function renderHouseTable(data) {
 
-        if (!aspects.length) {
+    const container = $("houseTable");
 
-            container.innerHTML = `
-                <div class="loading">
-                    جنبه قابل توجهی پیدا نشد.
-                </div>
-            `;
+    if (!container) return;
 
-            return;
-        }
+    const houses = safeObject(data.houses);
 
+    const entries = Object.entries(houses)
+        .sort((a, b) => Number(a[0]) - Number(b[0]));
+
+    if (!entries.length) {
 
         container.innerHTML = `
+            <div class="empty-state">
+                اطلاعات خانه‌ها پیدا نشد.
+            </div>
+        `;
 
-            <table class="astro-table">
+        return;
+    }
 
-                <thead>
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>خانه</th>
+                    <th>برج</th>
+                    <th>درجه</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-                    <tr>
-                        <th>جرم اول</th>
-                        <th>جنبه</th>
-                        <th>جرم دوم</th>
-                        <th>Orb</th>
-                    </tr>
+    for (const [number, house] of entries) {
 
-                </thead>
+        html += `
+            <tr>
+                <td>
+                    <strong>
+                        ${escapeHtml(
+                            house.name_fa ||
+                            `خانه ${number}`
+                        )}
+                    </strong>
+                </td>
 
-                <tbody>
+                <td>
+                    ${escapeHtml(
+                        house.sign_fa ||
+                        house.sign ||
+                        "—"
+                    )}
+                </td>
 
-                    ${aspects.map(
-                        aspect => {
-
-                            const first =
-                                firstValue(
-                                    aspect,
-                                    [
-                                        "planet1_fa",
-                                        "planet_a_fa",
-                                        "first_planet_fa",
-                                        "planet1"
-                                    ],
-                                    "—"
-                                );
-
-                            const second =
-                                firstValue(
-                                    aspect,
-                                    [
-                                        "planet2_fa",
-                                        "planet_b_fa",
-                                        "second_planet_fa",
-                                        "planet2"
-                                    ],
-                                    "—"
-                                );
-
-                            return `
-
-                                <tr>
-
-                                    <td>
-                                        ${escapeHtml(first)}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            aspectName(aspect)
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(second)}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            formatOrb(
-                                                aspect.orb
-                                            )
-                                        )}
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join("")}
-
-                </tbody>
-
-            </table>
+                <td>
+                    ${escapeHtml(
+                        house.formatted ||
+                        "—"
+                    )}
+                </td>
+            </tr>
         `;
     }
 
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
 
-    // =========================================================
-    // TRANSITS
-    // =========================================================
+    container.innerHTML = html;
+}
 
-    async function loadTransits() {
 
-        setLoading(
+/* ---------------------------------------------------------
+   Natal aspects
+--------------------------------------------------------- */
+
+function renderNatalAspects(data) {
+
+    const container = $("natalAspectTable");
+
+    if (!container) return;
+
+    const aspects = safeArray(data.aspects);
+
+    if (!aspects.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                جنبه‌ای پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>جرم اول</th>
+                    <th>جنبه</th>
+                    <th>جرم دوم</th>
+                    <th>Orb</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const item of aspects) {
+
+        const planet1 =
+            item.planet1_fa ||
+            item.planet1 ||
+            "—";
+
+        const planet2 =
+            item.planet2_fa ||
+            item.planet2 ||
+            "—";
+
+        const aspect =
+            item.aspect_fa ||
+            item.aspect ||
+            "—";
+
+        html += `
+            <tr>
+                <td>${escapeHtml(planet1)}</td>
+
+                <td>
+                    <strong>
+                        ${escapeHtml(aspect)}
+                    </strong>
+                </td>
+
+                <td>${escapeHtml(planet2)}</td>
+
+                <td>
+                    ${escapeHtml(formatOrb(item.orb))}
+                </td>
+            </tr>
+        `;
+    }
+
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+
+/* =========================================================
+   TRANSITS
+   ========================================================= */
+
+async function loadTransits() {
+
+    showLoading(
+        "transitPositions",
+        "در حال دریافت موقعیت فعلی سیارات..."
+    );
+
+    showLoading(
+        "transitAspectTable",
+        "در حال دریافت جنبه‌های فعلی..."
+    );
+
+    showLoading(
+        "natalTransitTable",
+        "در حال دریافت ترانزیت‌ها..."
+    );
+
+    try {
+
+        const data = await fetchJson("/analysis");
+
+        analysisData = data;
+
+        renderTransits(data);
+
+    } catch (error) {
+
+        console.error("Transit error:", error);
+
+        showError(
             "transitPositions",
-            "در حال محاسبه موقعیت سیارات..."
+            `خطا در دریافت آسمان فعلی: ${error.message}`
         );
 
-        setLoading(
+        showError(
             "transitAspectTable",
-            "در حال بررسی جنبه‌های فعلی..."
+            "اطلاعات جنبه‌های فعلی دریافت نشد."
         );
 
-        setLoading(
+        showError(
             "natalTransitTable",
-            "در حال بررسی ارتباط ترانزیت‌ها با چارت تولد..."
+            "اطلاعات ترانزیت به چارت تولد دریافت نشد."
         );
+    }
+}
 
 
-        try {
+/* ---------------------------------------------------------
+   Find transit container
+--------------------------------------------------------- */
 
-            const data =
-                await fetchJson(
-                    "/analysis"
-                );
+function getTransitObject(data) {
 
+    /*
+       Current backend normally returns:
 
-            const transits =
-                safeObject(
-                    data.transits ||
-                    data
-                );
+       {
+           status,
+           natal,
+           transits: {
+               current_positions,
+               transit_aspects,
+               natal_transits
+           }
+       }
 
+       But this function also supports older structures.
+    */
 
-            renderTransitPositions(
-                firstValue(
-                    transits,
-                    [
-                        "current_positions",
-                        "positions"
-                    ],
-                    []
-                )
-            );
-
-
-            renderTransitAspects(
-                firstValue(
-                    transits,
-                    [
-                        "transit_aspects",
-                        "transits"
-                    ],
-                    []
-                )
-            );
-
-
-            renderNatalTransits(
-                transits.natal_transits
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Transit error:",
-                error
-            );
-
-
-            showError(
-                "transitPositions",
-                `خطا در دریافت آسمان فعلی: ${error.message}`
-            );
-
-            showError(
-                "transitAspectTable",
-                "اطلاعات جنبه‌های فعلی دریافت نشد."
-            );
-
-            showError(
-                "natalTransitTable",
-                "اطلاعات ترانزیت به چارت تولد دریافت نشد."
-            );
-        }
+    if (data?.transits) {
+        return safeObject(data.transits);
     }
 
-
-    // =========================================================
-    // TRANSIT POSITIONS
-    // =========================================================
-
-    function renderTransitPositions(
-        positions
-    ) {
-
-        const container =
-            document.getElementById(
-                "transitPositions"
-            );
-
-        if (!container) {
-            return;
-        }
+    return data || {};
+}
 
 
-        positions =
-            safeArray(positions);
+/* ---------------------------------------------------------
+   Render all transit sections
+--------------------------------------------------------- */
+
+function renderTransits(data) {
+
+    const transits = getTransitObject(data);
+
+    /*
+       Current positions
+    */
+
+    const positions =
+        transits.current_positions ||
+        transits.positions ||
+        data.current_positions ||
+        data.positions ||
+        {};
+
+    renderTransitPositions(positions);
 
 
-        if (!positions.length) {
+    /*
+       Transit-to-transit aspects
+    */
 
-            container.innerHTML = `
-                <div class="loading">
-                    اطلاعات آسمان امروز دریافت نشد.
-                </div>
-            `;
+    const transitAspects =
+        transits.transit_aspects ||
+        transits.aspects ||
+        data.transit_aspects ||
+        [];
 
-            return;
-        }
-
-
-        container.innerHTML =
-            positions.map(
-                planet => {
-
-                    const retro =
-                        planet.retrograde
-                            ? `
-                                <div class="retro">
-                                    ℞ حرکت پس‌رو
-                                </div>
-                              `
-                            : "";
+    renderTransitAspects(transitAspects);
 
 
-                    return `
+    /*
+       Transit-to-natal aspects
+    */
 
-                        <div class="transit-card">
+    const natalTransits =
+        transits.natal_transits ||
+        data.natal_transits ||
+        [];
 
-                            <div class="transit-symbol">
-                                ${escapeHtml(
-                                    planetSymbol(planet)
-                                )}
-                            </div>
+    renderNatalTransitTable(natalTransits);
+}
 
-                            <div class="transit-name">
-                                ${escapeHtml(
-                                    planetName(planet)
-                                )}
-                            </div>
 
-                            <div class="transit-position">
-                                ${escapeHtml(
-                                    formatPosition(planet)
-                                )}
-                            </div>
+/* ---------------------------------------------------------
+   Current transit positions
+--------------------------------------------------------- */
 
-                            ${retro}
+function renderTransitPositions(positions) {
 
-                        </div>
-                    `;
-                }
-            ).join("");
+    const container = $("transitPositions");
+
+    if (!container) return;
+
+    let entries = [];
+
+    if (Array.isArray(positions)) {
+
+        entries = positions.map((item, index) => [
+            item.planet ||
+            item.name ||
+            item.name_fa ||
+            String(index),
+
+            item
+        ]);
+
+    } else {
+
+        entries = Object.entries(
+            safeObject(positions)
+        );
     }
 
-
-    // =========================================================
-    // TRANSIT → TRANSIT ASPECTS
-    // =========================================================
-
-    function renderTransitAspects(
-        aspects
-    ) {
-
-        const container =
-            document.getElementById(
-                "transitAspectTable"
-            );
-
-        if (!container) {
-            return;
-        }
-
-
-        aspects =
-            safeArray(aspects);
-
-
-        if (!aspects.length) {
-
-            container.innerHTML = `
-                <div class="loading">
-                    در حال حاضر جنبه قابل توجهی بین سیارات پیدا نشد.
-                </div>
-            `;
-
-            return;
-        }
-
+    if (!entries.length) {
 
         container.innerHTML = `
+            <div class="empty-state">
+                اطلاعات آسمان امروز دریافت نشد.
+            </div>
+        `;
 
-            <table class="astro-table">
+        return;
+    }
 
-                <thead>
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>جرم</th>
+                    <th>موقعیت فعلی</th>
+                    <th>وضعیت</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-                    <tr>
-                        <th>سیاره اول</th>
-                        <th>جنبه</th>
-                        <th>سیاره دوم</th>
-                        <th>Orb</th>
-                    </tr>
+    for (const [key, itemRaw] of entries) {
 
-                </thead>
+        const item = safeObject(itemRaw);
 
-                <tbody>
+        const name =
+            item.name_fa ||
+            item.planet_fa ||
+            item.planet_name_fa ||
+            key;
 
-                    ${aspects.map(
-                        aspect => {
+        const position =
+            item.formatted ||
+            buildPosition(item) ||
+            "—";
 
-                            const first =
-                                firstValue(
-                                    aspect,
-                                    [
-                                        "planet1_fa",
-                                        "planet_a_fa",
-                                        "first_planet_fa",
-                                        "planet1"
-                                    ],
-                                    "—"
-                                );
+        const retrograde =
+            item.retrograde
+                ? "رجعتی"
+                : "مستقیم";
 
-                            const second =
-                                firstValue(
-                                    aspect,
-                                    [
-                                        "planet2_fa",
-                                        "planet_b_fa",
-                                        "second_planet_fa",
-                                        "planet2"
-                                    ],
-                                    "—"
-                                );
+        html += `
+            <tr>
+                <td>
+                    <strong>
+                        ${escapeHtml(item.symbol || "")}
+                        ${escapeHtml(name)}
+                    </strong>
+                </td>
 
-                            return `
+                <td>
+                    ${escapeHtml(position)}
+                </td>
 
-                                <tr>
-
-                                    <td>
-                                        ${escapeHtml(first)}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            aspectName(aspect)
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(second)}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            formatOrb(
-                                                aspect.orb
-                                            )
-                                        )}
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join("")}
-
-                </tbody>
-
-            </table>
+                <td>
+                    ${escapeHtml(retrograde)}
+                </td>
+            </tr>
         `;
     }
 
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
 
-    // =========================================================
-    // TRANSIT → NATAL
-    // =========================================================
+    container.innerHTML = html;
+}
 
-    function renderNatalTransits(
-        aspects
+
+/* ---------------------------------------------------------
+   Build position if formatted is unavailable
+--------------------------------------------------------- */
+
+function buildPosition(item) {
+
+    if (
+        item.degree === undefined &&
+        item.degree_in_sign === undefined
     ) {
+        return "";
+    }
 
-        const container =
-            document.getElementById(
-                "natalTransitTable"
-            );
+    const degree =
+        item.degree ??
+        Math.floor(Number(item.degree_in_sign));
 
-        if (!container) {
-            return;
+    const minute =
+        item.minute ??
+        Math.floor(
+            (
+                Number(item.degree_in_sign) -
+                Number(degree)
+            ) * 60
+        );
+
+    const second =
+        item.second ?? 0;
+
+    const sign =
+        item.sign_fa ||
+        item.sign ||
+        "";
+
+    return `${degree}° ${String(minute).padStart(2, "0")}′ ${Number(second).toFixed(1).padStart(4, "0")}″ ${sign}`;
+}
+
+
+/* ---------------------------------------------------------
+   Transit-to-transit aspects
+--------------------------------------------------------- */
+
+function renderTransitAspects(aspects) {
+
+    const container = $("transitAspectTable");
+
+    if (!container) return;
+
+    aspects = safeArray(aspects);
+
+    if (!aspects.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                در حال حاضر جنبه قابل توجهی بین سیارات پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>جرم اول</th>
+                    <th>جنبه</th>
+                    <th>جرم دوم</th>
+                    <th>Orb</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const item of aspects) {
+
+        const p1 =
+            item.planet1_fa ||
+            item.planet1_name_fa ||
+            item.planet1 ||
+            "—";
+
+        const p2 =
+            item.planet2_fa ||
+            item.planet2_name_fa ||
+            item.planet2 ||
+            "—";
+
+        const aspect =
+            item.aspect_fa ||
+            item.aspect ||
+            "—";
+
+        html += `
+            <tr>
+                <td>${escapeHtml(p1)}</td>
+
+                <td>
+                    <strong>
+                        ${escapeHtml(aspect)}
+                    </strong>
+                </td>
+
+                <td>${escapeHtml(p2)}</td>
+
+                <td>
+                    ${escapeHtml(formatOrb(item.orb))}
+                </td>
+            </tr>
+        `;
+    }
+
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+
+/* ---------------------------------------------------------
+   Transit -> natal
+--------------------------------------------------------- */
+
+function renderNatalTransitTable(items) {
+
+    const container = $("natalTransitTable");
+
+    if (!container) return;
+
+    items = safeArray(items);
+
+    if (!items.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                ترانزیت مهمی نسبت به چارت تولد پیدا نشد.
+            </div>
+        `;
+
+        return;
+    }
+
+    /*
+       Sort by importance first,
+       then smallest orb.
+    */
+
+    const sorted = [...items].sort((a, b) => {
+
+        const importanceA =
+            Number(a.importance ?? 0);
+
+        const importanceB =
+            Number(b.importance ?? 0);
+
+        if (importanceA !== importanceB) {
+            return importanceB - importanceA;
         }
 
+        return (
+            Number(a.orb ?? 999) -
+            Number(b.orb ?? 999)
+        );
+    });
 
-        aspects =
-            safeArray(aspects);
+    let html = `
+        <div class="table-wrapper">
+        <table class="astro-table">
+            <thead>
+                <tr>
+                    <th>ترانزیت</th>
+                    <th>جنبه</th>
+                    <th>جرم تولدی</th>
+                    <th>خانه</th>
+                    <th>Orb</th>
+                    <th>قدرت</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const item of sorted) {
+
+        const transit =
+            item.transit_planet_fa ||
+            item.transit_name_fa ||
+            item.planet1_fa ||
+            item.transit_planet ||
+            item.planet1 ||
+            "—";
+
+        const natal =
+            item.natal_planet_fa ||
+            item.natal_name_fa ||
+            item.planet2_fa ||
+            item.natal_planet ||
+            item.planet2 ||
+            "—";
+
+        const aspect =
+            item.aspect_fa ||
+            item.aspect ||
+            "—";
+
+        const house =
+            item.natal_house_name_fa ||
+            item.house_name_fa ||
+            (
+                item.natal_house
+                    ? `خانه ${item.natal_house}`
+                    : ""
+            ) ||
+            "—";
+
+        const orb =
+            formatOrb(item.orb);
+
+        const importance =
+            item.importance !== undefined
+                ? item.importance
+                : "—";
+
+        html += `
+            <tr>
+                <td>
+                    <strong>
+                        ${escapeHtml(transit)}
+                    </strong>
+                </td>
+
+                <td>
+                    ${escapeHtml(aspect)}
+                </td>
+
+                <td>
+                    ${escapeHtml(natal)}
+                </td>
+
+                <td>
+                    ${escapeHtml(house)}
+                </td>
+
+                <td>
+                    ${escapeHtml(orb)}
+                </td>
+
+                <td>
+                    ${escapeHtml(importance)}
+                </td>
+            </tr>
+        `;
+    }
+
+    html += `
+            </tbody>
+        </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
 
 
-        if (!aspects.length) {
+/* =========================================================
+   LOAD EVERYTHING
+   ========================================================= */
 
-            container.innerHTML = `
-                <div class="loading">
-                    ارتباط قابل توجهی بین ترانزیت‌ها و چارت تولد پیدا نشد.
+async function loadAll() {
+
+    /*
+       Run independently so one failure
+       doesn't stop the other sections.
+    */
+
+    await Promise.allSettled([
+        loadNatal(),
+        loadTransits()
+    ]);
+}
+
+
+/* =========================================================
+   ADVISOR
+   ========================================================= */
+
+async function askAdvisor() {
+
+    const input = $("questionInput");
+    const box = $("advisorBox");
+
+    if (!input || !box) return;
+
+    const question = input.value.trim();
+
+    if (!question) {
+
+        box.innerHTML += `
+            <div class="advisor-message advisor-error">
+                لطفاً سؤال خود را وارد کنید.
+            </div>
+        `;
+
+        return;
+    }
+
+    /*
+       User message
+    */
+
+    box.innerHTML += `
+        <div class="advisor-message user-message">
+            ${escapeHtml(question)}
+        </div>
+    `;
+
+    input.value = "";
+
+    /*
+       Temporary loading
+    */
+
+    const loadingId =
+        "advisor-loading-" +
+        Date.now();
+
+    box.innerHTML += `
+        <div
+            class="advisor-message assistant-message"
+            id="${loadingId}"
+        >
+            در حال تحلیل چارت و آسمان فعلی...
+        </div>
+    `;
+
+    box.scrollTop = box.scrollHeight;
+
+    try {
+
+        const result = await fetchJson("/advisor", {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                question: question,
+                history: advisorHistory.slice(-12)
+            }),
+
+            timeout: 45000
+        });
+
+        /*
+           Save conversation
+        */
+
+        advisorHistory.push({
+            role: "user",
+            content: question
+        });
+
+        if (result.answer) {
+
+            advisorHistory.push({
+                role: "assistant",
+                content: result.answer
+            });
+        }
+
+        /*
+           Replace loading
+        */
+
+        const loadingEl = $(loadingId);
+
+        if (loadingEl) {
+
+            loadingEl.outerHTML = `
+                <div class="advisor-message assistant-message">
+                    ${formatAdvisorText(
+                        result.answer ||
+                        result.message ||
+                        "پاسخی دریافت نشد."
+                    )}
                 </div>
             `;
 
-            return;
         }
 
+    } catch (error) {
 
-        container.innerHTML = `
+        console.error("Advisor error:", error);
 
-            <table class="astro-table">
+        const loadingEl = $(loadingId);
 
-                <thead>
+        if (loadingEl) {
 
-                    <tr>
-                        <th>ترانزیت</th>
-                        <th>جنبه</th>
-                        <th>جرم تولدی</th>
-                        <th>خانه</th>
-                        <th>Orb</th>
-                        <th>اهمیت</th>
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${aspects.map(
-                        item => {
-
-                            const transit =
-                                firstValue(
-                                    item,
-                                    [
-                                        "transit_planet_fa",
-                                        "planet_fa",
-                                        "name_fa",
-                                        "transit_planet"
-                                    ],
-                                    "—"
-                                );
-
-
-                            const natalPlanet =
-                                firstValue(
-                                    item,
-                                    [
-                                        "natal_planet_fa",
-                                        "natal_target_fa",
-                                        "target_fa",
-                                        "natal_planet",
-                                        "natal_target"
-                                    ],
-                                    "—"
-                                );
-
-
-                            const house =
-                                firstValue(
-                                    item,
-                                    [
-                                        "natal_house_name_fa",
-                                        "house_name_fa",
-                                        "house_fa"
-                                    ],
-                                    ""
-                                ) ||
-                                (
-                                    item.natal_house !== undefined
-                                        ? `خانه ${item.natal_house}`
-                                        : "—"
-                                );
-
-
-                            const importance =
-                                firstValue(
-                                    item,
-                                    [
-                                        "importance",
-                                        "score"
-                                    ],
-                                    "—"
-                                );
-
-
-                            return `
-
-                                <tr>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            transit
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            aspectName(item)
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            natalPlanet
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            house
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            formatOrb(
-                                                item.orb
-                                            )
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        ${escapeHtml(
-                                            importance
-                                        )}
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-    }
-
-
-    // =========================================================
-    // LOAD EVERYTHING
-    // =========================================================
-
-    async function loadAll() {
-
-        await loadNatal();
-
-        await loadTransits();
-    }
-
-
-    // =========================================================
-    // ADVISOR
-    // =========================================================
-
-    function formatAdvisorText(text) {
-
-        let html =
-            escapeHtml(text);
-
-
-        html =
-            html.replace(
-                /^### (.+)$/gm,
-                '<div class="advisor-heading">$1</div>'
-            );
-
-
-        html =
-            html.replace(
-                /\*\*(.*?)\*\*/g,
-                "<strong>$1</strong>"
-            );
-
-
-        html =
-            html.replace(
-                /\n/g,
-                "<br>"
-            );
-
-
-        return html;
-    }
-
-
-    function addAdvisorMessage(
-        role,
-        text
-    ) {
-
-        if (!advisorBox) {
-            return;
-        }
-
-
-        const message =
-            document.createElement(
-                "div"
-            );
-
-
-        message.className =
-            role === "user"
-                ? "advisor-message user"
-                : "advisor-message assistant";
-
-
-        message.innerHTML = `
-
-            <div class="advisor-message-label">
-
-                ${
-                    role === "user"
-                        ? "👤 شما"
-                        : "🔮 مشاور"
-                }
-
-            </div>
-
-            <div class="advisor-message-content">
-
-                ${formatAdvisorText(text)}
-
-            </div>
-        `;
-
-
-        advisorBox.appendChild(
-            message
-        );
-
-
-        advisorBox.scrollTop =
-            advisorBox.scrollHeight;
-    }
-
-
-    function addAdvisorLoading() {
-
-        if (!advisorBox) {
-            return;
-        }
-
-
-        removeAdvisorLoading();
-
-
-        const loading =
-            document.createElement(
-                "div"
-            );
-
-
-        loading.id =
-            "advisorLoading";
-
-
-        loading.className =
-            "advisor-message assistant";
-
-
-        loading.innerHTML = `
-
-            <div class="advisor-message-label">
-                🔮 مشاور
-            </div>
-
-            <div class="advisor-message-content advisor-thinking">
-                در حال بررسی چارت تولد، آسمان فعلی و روند روزهای آینده...
-            </div>
-
-        `;
-
-
-        advisorBox.appendChild(
-            loading
-        );
-
-
-        advisorBox.scrollTop =
-            advisorBox.scrollHeight;
-    }
-
-
-    function removeAdvisorLoading() {
-
-        const loading =
-            document.getElementById(
-                "advisorLoading"
-            );
-
-        if (loading) {
-            loading.remove();
-        }
-    }
-
-
-    async function askAdvisor() {
-
-        if (
-            !questionInput ||
-            !advisorBox
-        ) {
-            return;
-        }
-
-
-        if (isAdvisorBusy) {
-            return;
-        }
-
-
-        const question =
-            questionInput.value.trim();
-
-
-        if (!question) {
-
-            questionInput.focus();
-
-            return;
-        }
-
-
-        isAdvisorBusy =
-            true;
-
-
-        addAdvisorMessage(
-            "user",
-            question
-        );
-
-
-        questionInput.value =
-            "";
-
-
-        addAdvisorLoading();
-
-
-        try {
-
-            const data =
-                await fetchJson(
-                    "/advisor",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body:
-                            JSON.stringify({
-
-                                question:
-                                    question,
-
-                                history:
-                                    advisorHistory
-
-                            })
-                    },
-                    60000
-                );
-
-
-            removeAdvisorLoading();
-
-
-            if (
-                data.status ===
-                "error"
-            ) {
-
-                addAdvisorMessage(
-                    "assistant",
-                    data.message ||
-                    "مشاور نتوانست پاسخ دهد."
-                );
-
-                return;
-            }
-
-
-            const message =
-                data.message ||
-                "پاسخی از مشاور دریافت نشد.";
-
-
-            advisorHistory.push({
-
-                role:
-                    "user",
-
-                content:
-                    question
-            });
-
-
-            advisorHistory.push({
-
-                role:
-                    "assistant",
-
-                content:
-                    message
-            });
-
-
-            if (
-                advisorHistory.length >
-                12
-            ) {
-
-                advisorHistory =
-                    advisorHistory.slice(
-                        -12
-                    );
-            }
-
-
-            addAdvisorMessage(
-                "assistant",
-                message
-            );
-
-
-        } catch (error) {
-
-            removeAdvisorLoading();
-
-
-            console.error(
-                "Advisor error:",
-                error
-            );
-
-
-            addAdvisorMessage(
-                "assistant",
-                `خطا در ارتباط با مشاور: ${error.message}`
-            );
-
-
-        } finally {
-
-            isAdvisorBusy =
-                false;
-        }
-    }
-
-
-    // =========================================================
-    // ENTER KEY
-    // =========================================================
-
-    if (questionInput) {
-
-        questionInput.addEventListener(
-            "keydown",
-            event => {
-
-                if (
-                    event.key === "Enter" &&
-                    !event.shiftKey
-                ) {
-
-                    event.preventDefault();
-
-                    askAdvisor();
-                }
-            }
-        );
-    }
-
-
-    // =========================================================
-    // ADVISOR INITIAL UI
-    // =========================================================
-
-    if (advisorBox) {
-
-        advisorBox.classList.add(
-            "advisor-chat"
-        );
-
-        advisorBox.innerHTML = `
-
-            <div class="advisor-welcome">
-
-                🔮 <strong>
-                    مشاور نجومی شخصی
-                </strong>
-
-                <div>
-                    سؤال خودت را بپرس.
-                    اگر برای تحلیل دقیق‌تر اطلاعات بیشتری لازم باشد،
-                    مشاور ابتدا از تو سؤال می‌پرسد و سپس تحلیل را ادامه می‌دهد.
+            loadingEl.outerHTML = `
+                <div class="advisor-message advisor-error">
+                    خطا در ارتباط با مشاور:
+                    ${escapeHtml(error.message)}
                 </div>
-
-            </div>
-        `;
+            `;
+        }
     }
 
-
-    // =========================================================
-    // EXPOSE GLOBAL FUNCTIONS
-    // =========================================================
-    // چون دکمه‌های index.html از onclick استفاده می‌کنند،
-    // این توابع باید روی window باشند.
-
-    window.loadAll =
-        loadAll;
-
-    window.loadNatal =
-        loadNatal;
-
-    window.loadTransits =
-        loadTransits;
-
-    window.askAdvisor =
-        askAdvisor;
+    box.scrollTop = box.scrollHeight;
+}
 
 
-    // =========================================================
-    // AUTO LOAD
-    // =========================================================
+/* ---------------------------------------------------------
+   Advisor text formatter
+--------------------------------------------------------- */
 
-    loadAll();
+function formatAdvisorText(text) {
 
+    if (!text) return "";
+
+    /*
+       Escape first.
+    */
+
+    let output = escapeHtml(text);
+
+    /*
+       Preserve simple line breaks.
+    */
+
+    output = output.replace(/\n/g, "<br>");
+
+    /*
+       Basic bold support
+    */
+
+    output = output.replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong>$1</strong>"
+    );
+
+    return output;
+}
+
+
+/* ---------------------------------------------------------
+   Enter key support
+--------------------------------------------------------- */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const input = $("questionInput");
+
+    if (input) {
+
+        input.addEventListener("keydown", (event) => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+                event.preventDefault();
+                askAdvisor();
+            }
+        });
+    }
+
+    /*
+       Do not automatically call loadAll here
+       if the existing page already calls it.
+    */
 });
+
+
+/* =========================================================
+   Debug helper
+   ========================================================= */
+
+window.AstroApp = {
+    getNatalData: () => natalData,
+    getAnalysisData: () => analysisData,
+    getAdvisorHistory: () => advisorHistory
+};
+
+
+/* =========================================================
+   Global exports
+   ========================================================= */
+
+window.loadAll = loadAll;
+window.loadNatal = loadNatal;
+window.loadTransits = loadTransits;
+window.askAdvisor = askAdvisor;
