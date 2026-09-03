@@ -1,5 +1,3 @@
-"main.py"
-
 import hashlib
 import hmac
 import json
