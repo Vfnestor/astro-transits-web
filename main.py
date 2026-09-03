@@ -622,16 +622,61 @@ async def analysis_endpoint(
 # =========================================================
 
 @app.get("/transits")
-async def transits_endpoint():
+async def transits_endpoint(
+    request: Request,
+):
+    user_id = _get_user_id(request)
+
+    if not user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Profile is not configured.",
+        )
+
+    profile = _load_profile(user_id)
+
+    required = [
+        "first_name",
+        "family_name",
+        "birth_date",
+        "birth_time",
+        "latitude",
+        "longitude",
+        "utc_offset",
+    ]
+
+    missing = [
+        field
+        for field in required
+        if profile.get(field) in (
+            None,
+            "",
+        )
+    ]
+
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Birth profile is incomplete.",
+                "missing": missing,
+            },
+        )
+
     try:
-        return ephemeris.get_full_transit_analysis()
+        chart = natal.get_natal_chart(
+            profile
+        )
+
+        return ephemeris.get_full_transit_analysis(
+            natal_chart=chart
+        )
 
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=f"Transit calculation failed: {exc}",
         )
-
 
 # =========================================================
 # Advisor
