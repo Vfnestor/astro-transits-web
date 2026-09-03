@@ -2025,6 +2025,10 @@ function renderAspects(aspects){
    TRANSITS
 ========================================================= */
 
+/* =========================================================
+   TRANSITS
+========================================================= */
+
 async function loadTransits(){
 
     if(!profile){
@@ -2044,11 +2048,12 @@ async function loadTransits(){
 
     try{
 
+        // پاسخ کامل API را نگه می‌داریم
         const data = await api("/transits");
 
-        transitData = data.transits || data;
+        transitData = data;
 
-        renderTransits(transitData);
+        renderTransits(data);
 
     }catch(error){
 
@@ -2065,213 +2070,20 @@ async function loadTransits(){
     }
 }
 
-function renderTransits(data) {
-    const positionsBox = document.getElementById("transitPositions");
-    const aspectsBox = document.getElementById("transitAspects");
-    const natalBox = document.getElementById("natalTransits");
 
-    if (!data || data.status !== "ok") {
-        if (positionsBox) {
-            positionsBox.innerHTML = `
-                <div class="empty-state">
-                    اطلاعات ترانزیت موجود نیست.
-                </div>
-            `;
-        }
+/* =========================================================
+   RENDER TRANSITS
+========================================================= */
 
-        if (aspectsBox) {
-            aspectsBox.innerHTML = "";
-        }
+function renderTransits(data){
 
-        if (natalBox) {
-            natalBox.innerHTML = "";
-        }
+    if(!data || data.status !== "ok"){
 
-        return;
-    }
-
-    // -----------------------------
-    // موقعیت فعلی سیارات
-    // -----------------------------
-    const positions = data.positions || data.current_positions || {};
-
-    if (positionsBox) {
-        const entries = Object.values(positions);
-
-        if (!entries.length) {
-            positionsBox.innerHTML = `
-                <div class="empty-state">
-                    موقعیت سیارات موجود نیست.
-                </div>
-            `;
-        } else {
-            positionsBox.innerHTML = entries.map(p => `
-                <div class="planet-row">
-                    <div class="planet-name">
-                        <span class="planet-symbol">${p.symbol || ""}</span>
-                        ${p.name_fa || p.planet_fa || "—"}
-                    </div>
-
-                    <div class="planet-position">
-                        ${p.formatted || "—"}
-                    </div>
-
-                    <div class="planet-speed">
-                        ${p.retrograde ? "℞ برگشتی" : "مستقیم"}
-                    </div>
-                </div>
-            `).join("");
-        }
-    }
-
-    // -----------------------------
-    // جنبه‌های فعلی بین سیارات
-    // -----------------------------
-    const aspects = data.transit_aspects || data.transits || [];
-
-    if (aspectsBox) {
-        if (!aspects.length) {
-            aspectsBox.innerHTML = `
-                <div class="empty-state">
-                    جنبه‌ای در حال حاضر موجود نیست.
-                </div>
-            `;
-        } else {
-            aspectsBox.innerHTML = aspects.map(a => `
-                <div class="aspect-card">
-                    <div class="aspect-main">
-                        <span class="aspect-planet">
-                            ${a.planet1_symbol || ""}
-                            ${a.planet1_fa || a.planet1 || "—"}
-                        </span>
-
-                        <span class="aspect-symbol">
-                            ${a.aspect_symbol || ""}
-                        </span>
-
-                        <span class="aspect-planet">
-                            ${a.planet2_symbol || ""}
-                            ${a.planet2_fa || a.planet2 || "—"}
-                        </span>
-                    </div>
-
-                    <div class="aspect-info">
-                        ${a.aspect_fa || a.aspect || "—"}
-                        · اورب ${Number(a.orb || 0).toFixed(2)}°
-                    </div>
-                </div>
-            `).join("");
-        }
-    }
-
-    // -----------------------------
-    // ترانزیت‌های فعلی روی چارت تولد
-    // -----------------------------
-    const natalTransits = data.natal_transits || [];
-
-    if (natalBox) {
-        if (!natalTransits.length) {
-            natalBox.innerHTML = `
-                <div class="empty-state">
-                    در حال حاضر ترانزیت مهمی نسبت به سیارات تولد شناسایی نشده است.
-                </div>
-            `;
-        } else {
-            natalBox.innerHTML = natalTransits.map(t => `
-                <div class="aspect-card">
-                    <div class="aspect-main">
-                        <span class="aspect-planet">
-                            ${t.transit_planet_fa || t.planet1_fa || t.transit_planet || "—"}
-                        </span>
-
-                        <span class="aspect-symbol">
-                            ${t.aspect_symbol || ""}
-                        </span>
-
-                        <span class="aspect-planet">
-                            ${t.natal_planet_fa || t.planet2_fa || t.natal_planet || "—"}
-                        </span>
-                    </div>
-
-                    <div class="aspect-info">
-                        ${t.aspect_fa || t.aspect || "—"}
-                        ${t.orb !== undefined
-                            ? ` · اورب ${Number(t.orb).toFixed(2)}°`
-                            : ""}
-                    </div>
-                </div>
-            `).join("");
-        }
-    }
-
-    // -----------------------------
-    // خلاصه
-    // -----------------------------
-    const summary = data.summary || {};
-
-    const summaryBox = document.getElementById("transitSummary");
-
-    if (summaryBox) {
-        summaryBox.innerHTML = `
-            <div class="summary-item">
-                <strong>${summary.planet_count ?? 0}</strong>
-                <span>سیاره</span>
-            </div>
-
-            <div class="summary-item">
-                <strong>${summary.transit_aspect_count ?? 0}</strong>
-                <span>جنبه فعال</span>
-            </div>
-
-            <div class="summary-item">
-                <strong>${summary.natal_transit_count ?? 0}</strong>
-                <span>ترانزیت روی چارت تولد</span>
-            </div>
-        `;
-    }
-} ده
-
-
-function renderTransitAspects(aspects){
-
-    if(!aspects || !aspects.length){
+        $("transitPositions").innerHTML =
+            `<div class="loading">اطلاعات ترانزیت موجود نیست.</div>`;
 
         $("transitAspectTable").innerHTML =
             `<div class="loading">جنبه‌ای موجود نیست.</div>`;
-
-        return;
-    }
-
-    const rows = aspects.map(a=>`
-
-        <tr>
-            <td>${esc(a.planet1 || a.first || a.p1 || "—")}</td>
-            <td>${esc(a.aspect || a.type || "—")}</td>
-            <td>${esc(a.planet2 || a.second || a.p2 || "—")}</td>
-            <td>${esc(a.orb ?? "—")}</td>
-        </tr>
-
-    `).join("");
-
-    $("transitAspectTable").innerHTML = `
-        <table class="astro-table">
-            <thead>
-                <tr>
-                    <th>جرم اول</th>
-                    <th>جنبه</th>
-                    <th>جرم دوم</th>
-                    <th>اورب</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    `;
-}
-
-
-function renderNatalTransits(items){
-
-    if(!items || !items.length){
 
         $("natalTransitTable").innerHTML =
             `<div class="loading">ترانزیت قابل نمایش نیست.</div>`;
@@ -2279,21 +2091,282 @@ function renderNatalTransits(items){
         return;
     }
 
-    const rows = items.map(a=>`
+
+    /* =====================================================
+       CURRENT PLANETARY POSITIONS
+    ===================================================== */
+
+    const positions =
+        data.positions ||
+        data.current_positions ||
+        {};
+
+    const positionEntries =
+        Object.entries(positions);
+
+
+    if(!positionEntries.length){
+
+        $("transitPositions").innerHTML =
+            `<div class="loading">موقعیت سیارات موجود نیست.</div>`;
+
+    }else{
+
+        $("transitPositions").innerHTML =
+            positionEntries.map(([key,p])=>`
+
+                <div class="transit-card">
+
+                    <div class="transit-symbol">
+                        ${esc(
+                            p.symbol ||
+                            planetSymbol(key)
+                        )}
+                    </div>
+
+                    <div class="transit-name">
+                        ${esc(
+                            p.name_fa ||
+                            p.planet_fa ||
+                            key
+                        )}
+                    </div>
+
+                    <div class="transit-position">
+                        ${esc(
+                            p.formatted ||
+                            "—"
+                        )}
+                    </div>
+
+                    ${
+                        p.retrograde
+                        ? `
+                            <div class="retro">
+                                ℞ حرکت برگشتی
+                            </div>
+                        `
+                        : `
+                            <div class="retro"
+                                 style="color:#64748b">
+                                حرکت مستقیم
+                            </div>
+                        `
+                    }
+
+                </div>
+
+            `).join("");
+    }
+
+
+    /* =====================================================
+       TRANSIT ASPECTS
+    ===================================================== */
+
+    const aspects =
+        data.transit_aspects ||
+        data.transits ||
+        [];
+
+    renderTransitAspects(aspects);
+
+
+    /* =====================================================
+       TRANSITS TO NATAL CHART
+    ===================================================== */
+
+    const natalTransits =
+        data.natal_transits ||
+        [];
+
+    renderNatalTransits(natalTransits);
+}
+
+
+/* =========================================================
+   TRANSIT ASPECT TABLE
+========================================================= */
+
+function renderTransitAspects(aspects){
+
+    if(!aspects || !aspects.length){
+
+        $("transitAspectTable").innerHTML =
+            `<div class="loading">
+                در حال حاضر جنبه‌ای بین سیارات موجود نیست.
+            </div>`;
+
+        return;
+    }
+
+
+    const rows = aspects.map(a=>`
 
         <tr>
-            <td>${esc(a.transit_planet || a.transit || a.planet || "—")}</td>
-            <td>${esc(a.aspect || a.type || "—")}</td>
-            <td>${esc(a.natal_planet || a.target || "—")}</td>
-            <td>${esc(a.orb ?? "—")}</td>
-            <td>${esc(a.interpretation || a.meaning || "—")}</td>
+
+            <td>
+                ${esc(
+                    a.planet1_fa ||
+                    a.planet1 ||
+                    "—"
+                )}
+                ${
+                    a.planet1_symbol
+                    ? ` ${esc(a.planet1_symbol)}`
+                    : ""
+                }
+            </td>
+
+            <td>
+                ${
+                    a.aspect_symbol
+                    ? esc(a.aspect_symbol) + " "
+                    : ""
+                }
+
+                ${esc(
+                    a.aspect_fa ||
+                    a.aspect ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${esc(
+                    a.planet2_fa ||
+                    a.planet2 ||
+                    "—"
+                )}
+                ${
+                    a.planet2_symbol
+                    ? ` ${esc(a.planet2_symbol)}`
+                    : ""
+                }
+            </td>
+
+            <td>
+                ${
+                    a.orb !== undefined
+                    ? Number(a.orb).toFixed(2) + "°"
+                    : "—"
+                }
+            </td>
+
         </tr>
 
     `).join("");
 
-    $("natalTransitTable").innerHTML = `
+
+    $("transitAspectTable").innerHTML = `
+
         <table class="astro-table">
+
             <thead>
+
+                <tr>
+                    <th>جرم اول</th>
+                    <th>جنبه</th>
+                    <th>جرم دوم</th>
+                    <th>اورب</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+                ${rows}
+            </tbody>
+
+        </table>
+
+    `;
+}
+
+
+/* =========================================================
+   NATAL TRANSITS
+========================================================= */
+
+function renderNatalTransits(items){
+
+    if(!items || !items.length){
+
+        $("natalTransitTable").innerHTML =
+            `<div class="loading">
+                در حال حاضر ترانزیت مهمی نسبت به چارت تولد شناسایی نشده است.
+            </div>`;
+
+        return;
+    }
+
+
+    const rows = items.map(a=>`
+
+        <tr>
+
+            <td>
+                ${esc(
+                    a.transit_planet_fa ||
+                    a.transit_planet ||
+                    a.transit ||
+                    a.planet1_fa ||
+                    a.planet1 ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${
+                    a.aspect_symbol
+                    ? esc(a.aspect_symbol) + " "
+                    : ""
+                }
+
+                ${esc(
+                    a.aspect_fa ||
+                    a.aspect ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${esc(
+                    a.natal_planet_fa ||
+                    a.natal_planet ||
+                    a.target ||
+                    a.planet2_fa ||
+                    a.planet2 ||
+                    "—"
+                )}
+            </td>
+
+            <td>
+                ${
+                    a.orb !== undefined
+                    ? Number(a.orb).toFixed(2) + "°"
+                    : "—"
+                }
+            </td>
+
+            <td>
+                ${esc(
+                    a.interpretation ||
+                    a.meaning ||
+                    "—"
+                )}
+            </td>
+
+        </tr>
+
+    `).join("");
+
+
+    $("natalTransitTable").innerHTML = `
+
+        <table class="astro-table">
+
+            <thead>
+
                 <tr>
                     <th>ترانزیت</th>
                     <th>جنبه</th>
@@ -2301,9 +2374,15 @@ function renderNatalTransits(items){
                     <th>اورب</th>
                     <th>تفسیر</th>
                 </tr>
+
             </thead>
-            <tbody>${rows}</tbody>
+
+            <tbody>
+                ${rows}
+            </tbody>
+
         </table>
+
     `;
 }
 
