@@ -1,37 +1,20 @@
+from pathlib import Path
+from datetime import datetime, timedelta, timezone
+import math
+import re
+
 import swisseph as swe
 
-from datetime import datetime, timedelta, timezone
+
+BASE_DIR = Path(__file__).resolve().parent
+EPHE_PATH = BASE_DIR / "ephe"
+
+swe.set_ephe_path(str(EPHE_PATH))
 
 
-# =========================================================
-# Swiss Ephemeris
-# =========================================================
-
-BASE_DIR = __import__("pathlib").Path(__file__).resolve().parent
-
-swe.set_ephe_path(
-    str(BASE_DIR / "ephe")
-)
-
-
-# =========================================================
-# اطلاعات تولد
-# =========================================================
-
-BIRTH_DATE = (1995, 3, 11)
-BIRTH_TIME = (20, 35)
-
-BIRTH_LAT = 35.7063066
-BIRTH_LON = 51.4509970
-
-# تهران در 11 مارس 1995
-# UTC+3:30
-BIRTH_UTC_OFFSET = 3.5
-
-
-# =========================================================
-# سیارات
-# =========================================================
+# ============================================================
+# SWISS EPHEMERIS
+# ============================================================
 
 PLANETS = {
     "Sun": swe.SUN,
@@ -46,53 +29,11 @@ PLANETS = {
     "Pluto": swe.PLUTO,
 }
 
-
-# =========================================================
-# گره‌ها
-# =========================================================
-
 NODES = {
     "North Node": swe.MEAN_NODE,
 }
 
-
-# =========================================================
-# برج‌ها
-# =========================================================
-
-SIGNS = [
-    "Aries",
-    "Taurus",
-    "Gemini",
-    "Cancer",
-    "Leo",
-    "Virgo",
-    "Libra",
-    "Scorpio",
-    "Sagittarius",
-    "Capricorn",
-    "Aquarius",
-    "Pisces",
-]
-
-
-SIGN_NAMES_FA = {
-    "Aries": "حمل",
-    "Taurus": "ثور",
-    "Gemini": "جوزا",
-    "Cancer": "سرطان",
-    "Leo": "اسد",
-    "Virgo": "سنبله",
-    "Libra": "میزان",
-    "Scorpio": "عقرب",
-    "Sagittarius": "قوس",
-    "Capricorn": "جدی",
-    "Aquarius": "دلو",
-    "Pisces": "حوت",
-}
-
-
-PLANET_NAMES_FA = {
+PLANET_FA = {
     "Sun": "خورشید",
     "Moon": "ماه",
     "Mercury": "عطارد",
@@ -107,8 +48,7 @@ PLANET_NAMES_FA = {
     "South Node": "گره جنوبی",
 }
 
-
-PLANET_SYMBOLS = {
+PLANET_SYMBOL = {
     "Sun": "☀",
     "Moon": "☽",
     "Mercury": "☿",
@@ -124,138 +64,190 @@ PLANET_SYMBOLS = {
 }
 
 
-# =========================================================
-# خانه‌ها
-# =========================================================
+SIGNS = [
+    ("Aries", "حمل"),
+    ("Taurus", "ثور"),
+    ("Gemini", "جوزا"),
+    ("Cancer", "سرطان"),
+    ("Leo", "اسد"),
+    ("Virgo", "سنبله"),
+    ("Libra", "میزان"),
+    ("Scorpio", "عقرب"),
+    ("Sagittarius", "قوس"),
+    ("Capricorn", "جدی"),
+    ("Aquarius", "دلو"),
+    ("Pisces", "حوت"),
+]
+
+
+ASPECTS = [
+    ("conjunction", "هم‌نشینی", 0, 8),
+    ("opposition", "مقابله", 180, 8),
+    ("trine", "تثلیث", 120, 7),
+    ("square", "تربیع", 90, 7),
+    ("sextile", "تسدیس", 60, 5),
+    ("quincunx", "کوینکانکس", 150, 3),
+]
+
 
 HOUSE_SYSTEM = b"P"
 
 
-HOUSE_NAMES_FA = {
-    1: "خانه اول",
-    2: "خانه دوم",
-    3: "خانه سوم",
-    4: "خانه چهارم",
-    5: "خانه پنجم",
-    6: "خانه ششم",
-    7: "خانه هفتم",
-    8: "خانه هشتم",
-    9: "خانه نهم",
-    10: "خانه دهم",
-    11: "خانه یازدهم",
-    12: "خانه دوازدهم",
+# ============================================================
+# ABJAD
+# ============================================================
+
+ABJAD = {
+    "ا": 1,
+    "أ": 1,
+    "إ": 1,
+    "آ": 1,
+    "ب": 2,
+    "ج": 3,
+    "د": 4,
+    "ه": 5,
+    "ة": 5,
+    "و": 6,
+    "ز": 7,
+    "ح": 8,
+    "ط": 9,
+    "ی": 10,
+    "ي": 10,
+    "ى": 10,
+    "ک": 20,
+    "ك": 20,
+    "ل": 30,
+    "م": 40,
+    "ن": 50,
+    "س": 60,
+    "ع": 70,
+    "ف": 80,
+    "ص": 90,
+    "ق": 100,
+    "ر": 200,
+    "ش": 300,
+    "ت": 400,
+    "ث": 500,
+    "خ": 600,
+    "ذ": 700,
+    "ض": 800,
+    "ظ": 900,
+    "غ": 1000,
 }
 
 
-# =========================================================
-# جنبه‌ها
-# =========================================================
+def normalize_name(text):
+    if not text:
+        return ""
 
-ASPECTS = {
-    "conjunction": {
-        "angle": 0,
-        "orb": 8.0,
-        "name_fa": "هم‌نشینی",
-    },
-
-    "opposition": {
-        "angle": 180,
-        "orb": 8.0,
-        "name_fa": "مقابله",
-    },
-
-    "trine": {
-        "angle": 120,
-        "orb": 7.0,
-        "name_fa": "تثلیث",
-    },
-
-    "square": {
-        "angle": 90,
-        "orb": 7.0,
-        "name_fa": "تربیع",
-    },
-
-    "sextile": {
-        "angle": 60,
-        "orb": 5.0,
-        "name_fa": "تسدیس",
-    },
-
-    "quincunx": {
-        "angle": 150,
-        "orb": 3.0,
-        "name_fa": "کوینکانکس",
-    },
-}
-
-
-# =========================================================
-# ابزارها
-# =========================================================
-
-def _normalize_degree(deg):
-    return float(deg) % 360.0
-
-
-def _deg_to_sign(deg):
-
-    deg = _normalize_degree(deg)
-
-    sign_index = int(deg // 30)
-
-    degree_in_sign = deg % 30
-
-    sign = SIGNS[sign_index]
-
-    return sign, degree_in_sign
-
-
-def _format_position(deg):
-
-    deg = _normalize_degree(deg)
-
-    sign, degree_in_sign = _deg_to_sign(deg)
-
-    degree = int(degree_in_sign)
-
-    minute_float = (
-        degree_in_sign - degree
-    ) * 60
-
-    minute = int(minute_float)
-
-    second = round(
-        (minute_float - minute) * 60,
-        2,
+    return (
+        str(text)
+        .strip()
+        .replace("ي", "ی")
+        .replace("ى", "ی")
+        .replace("ك", "ک")
+        .replace("ۀ", "ه")
+        .replace("ة", "ه")
     )
 
+
+def abjad_value(text):
+    text = normalize_name(text)
+
+    total = 0
+    supported = 0
+
+    for char in text:
+        if char in ABJAD:
+            total += ABJAD[char]
+            supported += 1
+
+    return total, supported
+
+
+def reduce_number(number):
+    number = abs(int(number))
+
+    while number > 9 and number not in (11, 22, 33):
+        number = sum(int(x) for x in str(number))
+
+    return number
+
+
+def life_path_number(year, month, day):
+    digits = f"{year:04d}{month:02d}{day:02d}"
+    total = sum(int(x) for x in digits)
+    return reduce_number(total)
+
+
+def calculate_numerology(first_name, family_name, year, month, day):
+    first_name = normalize_name(first_name)
+    family_name = normalize_name(family_name)
+
+    full_name = f"{first_name} {family_name}".strip()
+
+    first_value, first_supported = abjad_value(first_name)
+    family_value, family_supported = abjad_value(family_name)
+    full_value, full_supported = abjad_value(full_name)
+
     return {
-        "longitude": round(deg, 6),
-        "sign": sign,
-        "sign_fa": SIGN_NAMES_FA[sign],
-        "degree_in_sign": round(
-            degree_in_sign,
-            6,
+        "system": "ابجد کبیر + عدد مسیر زندگی",
+        "first_name": first_name,
+        "family_name": family_name,
+        "full_name": full_name,
+        "first_name_abjad": first_value,
+        "family_name_abjad": family_value,
+        "full_name_abjad": full_value,
+        "name_number": reduce_number(full_value) if full_value else None,
+        "life_path_number": life_path_number(year, month, day),
+        "abjad_supported_letters": full_supported,
+        "abjad_warning": (
+            None
+            if full_supported > 0
+            else "نام واردشده شامل حروف فارسی/عربی قابل محاسبه با ابجد نیست."
         ),
-        "degree": degree,
-        "minute": minute,
-        "second": second,
+    }
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _normalize_degree(degree):
+    return degree % 360.0
+
+
+def _deg_to_sign(degree):
+    degree = _normalize_degree(degree)
+
+    index = int(degree // 30)
+    degree_in_sign = degree - (index * 30)
+
+    sign_en, sign_fa = SIGNS[index]
+
+    whole_degree = int(degree_in_sign)
+    minutes_float = (degree_in_sign - whole_degree) * 60
+    minutes = int(minutes_float)
+    seconds = (minutes_float - minutes) * 60
+
+    return {
+        "sign": sign_en,
+        "sign_fa": sign_fa,
+        "degree_in_sign": degree_in_sign,
+        "degree": whole_degree,
+        "minute": minutes,
+        "second": seconds,
         "formatted": (
-            f"{degree}° "
-            f"{minute:02d}′ "
-            f"{second:04.1f}″ "
-            f"{SIGN_NAMES_FA[sign]}"
+            f"{whole_degree}° "
+            f"{minutes:02d}′ "
+            f"{seconds:04.1f}″ "
+            f"{sign_fa}"
         ),
     }
 
 
 def _angular_difference(a, b):
-
-    diff = abs(
-        _normalize_degree(a)
-        - _normalize_degree(b)
-    )
+    diff = abs(a - b) % 360
 
     if diff > 180:
         diff = 360 - diff
@@ -263,9 +255,112 @@ def _angular_difference(a, b):
     return diff
 
 
-# =========================================================
-# Local → UTC
-# =========================================================
+def _parse_birth_time(value):
+    if isinstance(value, str):
+        parts = value.strip().split(":")
+
+        if len(parts) < 2:
+            raise ValueError("ساعت تولد باید به شکل HH:MM باشد.")
+
+        hour = int(parts[0])
+        minute = int(parts[1])
+
+        if not (0 <= hour <= 23):
+            raise ValueError("ساعت تولد نامعتبر است.")
+
+        if not (0 <= minute <= 59):
+            raise ValueError("دقیقه تولد نامعتبر است.")
+
+        return hour, minute
+
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        hour = int(value[0])
+        minute = int(value[1])
+
+        return hour, minute
+
+    raise ValueError("فرمت ساعت تولد نامعتبر است.")
+
+
+def _parse_date(value):
+    if isinstance(value, str):
+        parts = value.strip().split("-")
+
+        if len(parts) != 3:
+            raise ValueError("تاریخ تولد باید به شکل YYYY-MM-DD باشد.")
+
+        year = int(parts[0])
+        month = int(parts[1])
+        day = int(parts[2])
+
+        return year, month, day
+
+    if isinstance(value, dict):
+        return (
+            int(value["year"]),
+            int(value["month"]),
+            int(value["day"]),
+        )
+
+    raise ValueError("فرمت تاریخ تولد نامعتبر است.")
+
+
+def _validate_profile(profile):
+    if not isinstance(profile, dict):
+        raise ValueError("پروفایل ارسال نشده است.")
+
+    required = [
+        "first_name",
+        "family_name",
+        "advisor_name",
+        "birth_date",
+        "birth_time",
+        "city",
+        "latitude",
+        "longitude",
+        "utc_offset",
+    ]
+
+    for key in required:
+        if key not in profile:
+            raise ValueError(f"فیلد {key} الزامی است.")
+
+        if profile[key] is None or str(profile[key]).strip() == "":
+            raise ValueError(f"فیلد {key} نمی‌تواند خالی باشد.")
+
+    latitude = float(profile["latitude"])
+    longitude = float(profile["longitude"])
+    utc_offset = float(profile["utc_offset"])
+
+    if not -90 <= latitude <= 90:
+        raise ValueError("عرض جغرافیایی نامعتبر است.")
+
+    if not -180 <= longitude <= 180:
+        raise ValueError("طول جغرافیایی نامعتبر است.")
+
+    if not -14 <= utc_offset <= 14:
+        raise ValueError("UTC Offset نامعتبر است.")
+
+    year, month, day = _parse_date(profile["birth_date"])
+    hour, minute = _parse_birth_time(profile["birth_time"])
+
+    datetime(year, month, day, hour, minute)
+
+    return (
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        latitude,
+        longitude,
+        utc_offset,
+    )
+
+
+# ============================================================
+# JULIAN DAY
+# ============================================================
 
 def _to_julian_day(
     year,
@@ -273,9 +368,9 @@ def _to_julian_day(
     day,
     hour,
     minute,
+    utc_offset,
 ):
-
-    local_datetime = datetime(
+    local_dt = datetime(
         year,
         month,
         day,
@@ -283,369 +378,447 @@ def _to_julian_day(
         minute,
     )
 
-    utc_datetime = (
-        local_datetime
-        - timedelta(
-            hours=BIRTH_UTC_OFFSET
-        )
-    )
+    utc_dt = local_dt - timedelta(hours=float(utc_offset))
 
-    utc_hour = (
-        utc_datetime.hour
-        + utc_datetime.minute / 60
-        + utc_datetime.second / 3600
+    hour_decimal = (
+        utc_dt.hour
+        + utc_dt.minute / 60
+        + utc_dt.second / 3600
     )
 
     return swe.julday(
-        utc_datetime.year,
-        utc_datetime.month,
-        utc_datetime.day,
-        utc_hour,
-        swe.GREG_CAL,
+        utc_dt.year,
+        utc_dt.month,
+        utc_dt.day,
+        hour_decimal,
     )
 
 
-# =========================================================
-# سیارات
-# =========================================================
+# ============================================================
+# JALALI CONVERSION
+# ============================================================
+
+def _gregorian_to_jalali(gy, gm, gd):
+    g_days_in_month = [
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    ]
+
+    j_days_in_month = [
+        31, 31, 31, 31, 31, 31,
+        30, 30, 30, 30, 30, 29
+    ]
+
+    gy2 = gy - 1600
+    gm2 = gm - 1
+    gd2 = gd - 1
+
+    g_day_no = (
+        365 * gy2
+        + (gy2 + 3) // 4
+        - (gy2 + 99) // 100
+        + (gy2 + 399) // 400
+    )
+
+    for i in range(gm2):
+        g_day_no += g_days_in_month[i]
+
+    if gm2 > 1 and (
+        gy % 4 == 0 and
+        (gy % 100 != 0 or gy % 400 == 0)
+    ):
+        g_day_no += 1
+
+    g_day_no += gd2
+
+    j_day_no = g_day_no - 79
+
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+
+    j_day_no %= 1461
+
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+
+    for i in range(11):
+        if j_day_no < j_days_in_month[i]:
+            jm = i + 1
+            jd = j_day_no + 1
+            return jy, jm, jd
+
+        j_day_no -= j_days_in_month[i]
+
+    return jy, 12, j_day_no + 1
+
+
+def _persian_digits(text):
+    return str(text).translate(
+        str.maketrans(
+            "0123456789",
+            "۰۱۲۳۴۵۶۷۸۹",
+        )
+    )
+
+
+def _persian_date(year, month, day):
+    jy, jm, jd = _gregorian_to_jalali(
+        year,
+        month,
+        day,
+    )
+
+    months = [
+        "فروردین",
+        "اردیبهشت",
+        "خرداد",
+        "تیر",
+        "مرداد",
+        "شهریور",
+        "مهر",
+        "آبان",
+        "آذر",
+        "دی",
+        "بهمن",
+        "اسفند",
+    ]
+
+    return (
+        f"{_persian_digits(jd)} "
+        f"{months[jm - 1]} "
+        f"{_persian_digits(jy)}"
+    )
+
+
+# ============================================================
+# PLANETS
+# ============================================================
 
 def _calculate_planets(jd):
+    result = {}
 
-    positions = {}
-
-    for name, code in PLANETS.items():
-
-        result = swe.calc(
+    for name, planet_id in PLANETS.items():
+        values, flags = swe.calc(
             jd,
-            code,
+            planet_id,
+            swe.FLG_SWIEPH | swe.FLG_SPEED,
         )
 
-        values = result[0]
+        longitude = _normalize_degree(values[0])
+        latitude = values[1]
+        speed = values[3]
 
-        lon = float(values[0])
-        lat = float(values[1])
-        speed = float(values[3])
+        position = _deg_to_sign(longitude)
 
-        position = _format_position(
-            lon
-        )
+        result[name] = {
+            "longitude": longitude,
+            "sign": position["sign"],
+            "sign_fa": position["sign_fa"],
+            "degree_in_sign": position["degree_in_sign"],
+            "degree": position["degree"],
+            "minute": position["minute"],
+            "second": position["second"],
+            "formatted": position["formatted"],
+            "latitude": latitude,
+            "speed": speed,
+            "retrograde": speed < 0,
+            "name_fa": PLANET_FA[name],
+            "symbol": PLANET_SYMBOL[name],
+        }
 
-        position["latitude"] = lat
-        position["speed"] = speed
-        position["retrograde"] = speed < 0
-        position["name_fa"] = PLANET_NAMES_FA[name]
-        position["symbol"] = PLANET_SYMBOLS[name]
-
-        positions[name] = position
-
-    return positions
+    return result
 
 
-# =========================================================
-# Nodes
-# =========================================================
+# ============================================================
+# NODES
+# ============================================================
 
 def _calculate_nodes(jd):
+    result = {}
 
-    result = swe.calc(
+    values, flags = swe.calc(
         jd,
         swe.MEAN_NODE,
+        swe.FLG_SWIEPH | swe.FLG_SPEED,
     )
 
-    north_lon = float(
-        result[0][0]
-    )
+    north_lon = _normalize_degree(values[0])
+    south_lon = _normalize_degree(north_lon + 180)
 
-    south_lon = _normalize_degree(
-        north_lon + 180
-    )
+    for name, longitude in [
+        ("North Node", north_lon),
+        ("South Node", south_lon),
+    ]:
+        position = _deg_to_sign(longitude)
 
-    north = _format_position(
-        north_lon
-    )
+        result[name] = {
+            "longitude": longitude,
+            "sign": position["sign"],
+            "sign_fa": position["sign_fa"],
+            "degree_in_sign": position["degree_in_sign"],
+            "degree": position["degree"],
+            "minute": position["minute"],
+            "second": position["second"],
+            "formatted": position["formatted"],
+            "name_fa": PLANET_FA[name],
+            "symbol": PLANET_SYMBOL[name],
+        }
 
-    south = _format_position(
-        south_lon
-    )
-
-    north["name_fa"] = "گره شمالی"
-    north["symbol"] = "☊"
-
-    south["name_fa"] = "گره جنوبی"
-    south["symbol"] = "☋"
-
-    return {
-        "North Node": north,
-        "South Node": south,
-    }
+    return result
 
 
-# =========================================================
-# Houses
-# =========================================================
+# ============================================================
+# HOUSES
+# ============================================================
 
-def _calculate_houses(jd):
-
-    houses, ascmc = swe.houses(
+def _calculate_houses(jd, latitude, longitude):
+    cusps, ascmc = swe.houses(
         jd,
-        BIRTH_LAT,
-        BIRTH_LON,
+        latitude,
+        longitude,
         HOUSE_SYSTEM,
     )
 
-    house_data = {}
+    houses = {}
 
-    for index in range(12):
+    for i in range(12):
+        house_number = i + 1
+        longitude_value = _normalize_degree(cusps[i])
 
-        number = index + 1
+        position = _deg_to_sign(longitude_value)
 
-        cusp = float(
-            houses[index]
-        )
-
-        house_data[str(number)] = {
-            "house": number,
-            "name_fa": HOUSE_NAMES_FA[number],
-            **_format_position(cusp),
+        houses[str(house_number)] = {
+            "house": house_number,
+            "name_fa": f"خانه {house_number}",
+            "longitude": longitude_value,
+            "sign": position["sign"],
+            "sign_fa": position["sign_fa"],
+            "degree_in_sign": position["degree_in_sign"],
+            "degree": position["degree"],
+            "minute": position["minute"],
+            "second": position["second"],
+            "formatted": position["formatted"],
         }
 
-    ascendant = _format_position(
-        float(ascmc[0])
-    )
+    asc = _normalize_degree(ascmc[0])
+    mc = _normalize_degree(ascmc[1])
 
-    mc = _format_position(
-        float(ascmc[1])
-    )
-
-    return {
-        "houses": house_data,
-        "ascendant": ascendant,
-        "mc": mc,
-    }
+    return houses, asc, mc
 
 
-# =========================================================
-# Find house
-# =========================================================
-
-def _find_house(
-    longitude,
-    houses,
-):
-
-    longitude = _normalize_degree(
-        longitude
-    )
+def _find_house(longitude, houses):
+    longitude = _normalize_degree(longitude)
 
     cusps = [
-        float(
-            houses[str(i)]["longitude"]
-        )
+        houses[str(i)]["longitude"]
         for i in range(1, 13)
     ]
 
     for i in range(12):
-
         start = cusps[i]
         end = cusps[(i + 1) % 12]
 
         if i == 11:
-
-            if (
-                longitude >= start
-                or longitude < end
-            ):
+            if longitude >= start or longitude < end:
                 return 12
-
         else:
-
-            if (
-                start <= longitude < end
-            ):
+            if start <= longitude < end:
                 return i + 1
 
-    return 12
+    return 1
 
 
-# =========================================================
-# Assign houses
-# =========================================================
-
-def _assign_houses(
-    bodies,
-    houses,
-):
-
-    for name, data in bodies.items():
-
-        house = _find_house(
-            data["longitude"],
-            houses,
-        )
-
-        data["house"] = house
-        data["house_name_fa"] = (
-            HOUSE_NAMES_FA[house]
-        )
-
-    return bodies
-
-
-# =========================================================
-# Natal aspects
-# =========================================================
-
-def _calculate_aspects(
-    bodies,
-):
-
-    aspects = []
-
-    names = list(
-        bodies.keys()
-    )
-
-    for i in range(len(names)):
-
-        for j in range(
-            i + 1,
-            len(names),
-        ):
-
-            p1 = names[i]
-            p2 = names[j]
-
-            lon1 = bodies[p1][
-                "longitude"
-            ]
-
-            lon2 = bodies[p2][
-                "longitude"
-            ]
-
-            diff = _angular_difference(
-                lon1,
-                lon2,
+def _assign_houses(planets, nodes, houses):
+    for collection in (planets, nodes):
+        for item in collection.values():
+            house = _find_house(
+                item["longitude"],
+                houses,
             )
 
-            for aspect_name, info in ASPECTS.items():
+            item["house"] = house
+            item["house_name_fa"] = f"خانه {house}"
 
-                target = info["angle"]
 
-                orb = abs(
-                    diff - target
-                )
+# ============================================================
+# ASPECTS
+# ============================================================
 
-                if orb <= info["orb"]:
+def _find_aspect(diff):
+    for name, name_fa, exact, orb in ASPECTS:
+        actual_orb = abs(diff - exact)
 
-                    aspects.append({
-                        "planet1": p1,
-                        "planet2": p2,
-                        "planet1_fa": PLANET_NAMES_FA[p1],
-                        "planet2_fa": PLANET_NAMES_FA[p2],
-                        "aspect": aspect_name,
-                        "aspect_fa": info["name_fa"],
-                        "angle": target,
-                        "exact_difference": round(
-                            diff,
-                            4,
-                        ),
-                        "orb": round(
-                            orb,
-                            4,
-                        ),
-                    })
+        if actual_orb <= orb:
+            return {
+                "type": name,
+                "type_fa": name_fa,
+                "exact": exact,
+                "orb": actual_orb,
+            }
 
-                    break
+    return None
 
-    aspects.sort(
-        key=lambda x: x["orb"]
-    )
+
+def _calculate_aspects(planets, nodes):
+    objects = {}
+
+    objects.update(planets)
+    objects.update(nodes)
+
+    names = list(objects.keys())
+    aspects = []
+
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            name_a = names[i]
+            name_b = names[j]
+
+            lon_a = objects[name_a]["longitude"]
+            lon_b = objects[name_b]["longitude"]
+
+            diff = _angular_difference(
+                lon_a,
+                lon_b,
+            )
+
+            aspect = _find_aspect(diff)
+
+            if not aspect:
+                continue
+
+            aspects.append({
+                "planet1": name_a,
+                "planet1_fa": objects[name_a]["name_fa"],
+                "planet2": name_b,
+                "planet2_fa": objects[name_b]["name_fa"],
+                "type": aspect["type"],
+                "type_fa": aspect["type_fa"],
+                "orb": aspect["orb"],
+                "exact_angle": aspect["exact"],
+            })
+
+    aspects.sort(key=lambda x: x["orb"])
 
     return aspects
 
 
-# =========================================================
-# Full natal chart
-# =========================================================
+# ============================================================
+# PUBLIC API
+# ============================================================
 
-def get_natal_chart():
+def get_natal_chart(profile):
+    (
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        latitude,
+        longitude,
+        utc_offset,
+    ) = _validate_profile(profile)
 
     jd = _to_julian_day(
-        BIRTH_DATE[0],
-        BIRTH_DATE[1],
-        BIRTH_DATE[2],
-        BIRTH_TIME[0],
-        BIRTH_TIME[1],
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        utc_offset,
     )
 
-    planets = _calculate_planets(
-        jd
+    planets = _calculate_planets(jd)
+    nodes = _calculate_nodes(jd)
+
+    houses, asc, mc = _calculate_houses(
+        jd,
+        latitude,
+        longitude,
     )
 
-    nodes = _calculate_nodes(
-        jd
-    )
-
-    house_data = _calculate_houses(
-        jd
-    )
-
-    houses = house_data["houses"]
-
-    planets = _assign_houses(
+    _assign_houses(
         planets,
-        houses,
-    )
-
-    nodes = _assign_houses(
         nodes,
         houses,
     )
 
-    all_bodies = {}
-
-    all_bodies.update(planets)
-    all_bodies.update(nodes)
-
     aspects = _calculate_aspects(
-        all_bodies
+        planets,
+        nodes,
     )
 
-    generated_at = (
-        datetime.now(
-            timezone.utc
-        )
-        .isoformat()
+    asc_position = _deg_to_sign(asc)
+    mc_position = _deg_to_sign(mc)
+
+    first_name = normalize_name(
+        profile["first_name"]
+    )
+
+    family_name = normalize_name(
+        profile["family_name"]
+    )
+
+    numerology = calculate_numerology(
+        first_name,
+        family_name,
+        year,
+        month,
+        day,
     )
 
     return {
         "status": "ok",
 
-        "generated_at": generated_at,
+        "generated_at": datetime.now(
+            timezone.utc
+        ).isoformat(),
+
+        "person": {
+            "first_name": first_name,
+            "family_name": family_name,
+            "full_name": (
+                f"{first_name} {family_name}"
+            ).strip(),
+            "advisor_name": str(
+                profile["advisor_name"]
+            ).strip(),
+        },
 
         "birth_data": {
             "date": {
-                "year": BIRTH_DATE[0],
-                "month": BIRTH_DATE[1],
-                "day": BIRTH_DATE[2],
+                "year": year,
+                "month": month,
+                "day": day,
             },
 
-            "date_fa": "۲۰ اسفند ۱۳۷۳",
+            "date_fa": _persian_date(
+                year,
+                month,
+                day,
+            ),
 
             "time": {
-                "hour": BIRTH_TIME[0],
-                "minute": BIRTH_TIME[1],
+                "hour": hour,
+                "minute": minute,
             },
 
-            "time_fa": "۲۰:۳۵",
+            "time_fa": (
+                f"{_persian_digits(hour):0>2}:"
+                f"{_persian_digits(minute):0>2}"
+            ),
 
-            "utc_offset": BIRTH_UTC_OFFSET,
+            "utc_offset": utc_offset,
 
             "location": {
-                "city": "تهران",
-                "latitude": BIRTH_LAT,
-                "longitude": BIRTH_LON,
+                "city": str(
+                    profile["city"]
+                ).strip(),
+
+                "latitude": latitude,
+                "longitude": longitude,
             },
         },
 
@@ -662,8 +835,15 @@ def get_natal_chart():
         "julian_day": jd,
 
         "angles": {
-            "ascendant": house_data["ascendant"],
-            "mc": house_data["mc"],
+            "ascendant": {
+                "longitude": asc,
+                **asc_position,
+            },
+
+            "mc": {
+                "longitude": mc,
+                **mc_position,
+            },
         },
 
         "houses": houses,
@@ -673,4 +853,6 @@ def get_natal_chart():
         "nodes": nodes,
 
         "aspects": aspects,
+
+        "numerology": numerology,
     }
